@@ -403,6 +403,62 @@
     }
   }
 
+  // ---------- bot brain: rings, AI signal per market, thought feed, movers ----------
+  const setHTML = (el, h) => { if (el && el._h !== h) { el._h = h; el.innerHTML = h; } };
+  const shortName = (s) => (s === "PAXG-USD" ? "Gold" : s.replace("-USD", ""));
+  const sigAction = (m) => (m.score >= 30 && m.trend === "up" ? { word: "BUY ZONE", lvl: "good" } : m.score <= -30 ? { word: "AVOID", lvl: "bad" } : { word: "WAIT", lvl: "watch" });
+  const RING_COL = { good: "var(--up)", bad: "var(--down)", watch: "var(--warn)" };
+  function brainState() {
+    const ms = symbols().map(metrics).filter(Boolean);
+    if (!ms.length) return null;
+    const avg = (f) => ms.reduce((a, m) => a + f(m), 0) / ms.length;
+    const trend = avg((m) => (m.score + 100) / 2);
+    const mom = avg((m) => Math.max(0, Math.min(100, 100 - Math.abs(m.rsi - 60) * 2.5))); // sweet spot ≈ RSI 60
+    const lim = dailyLimit() || 1, risk = 100 - Math.min(100, Math.max(0, (-todayPnl() / lim) * 100));
+    const conf = Math.round(trend * 0.5 + mom * 0.3 + risk * 0.2);
+    return { trend, mom, risk, conf, ms };
+  }
+  const thoughts = [], lastThought = {};
+  function think(ms) {
+    const t = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    for (const m of ms) {
+      const a = sigAction(m), key = a.word + m.trend;
+      if (lastThought[m.sym] === key) continue;
+      lastThought[m.sym] = key;
+      const why = `${m.trend === "up" ? "trend up" : m.trend === "down" ? "trend down" : "choppy"}, RSI ${m.rsi.toFixed(0)}, volume ${m.volRatio.toFixed(1)}× normal`;
+      thoughts.unshift({ t, lvl: a.lvl, txt: `${shortName(m.sym)}: ${why} → ${a.word === "BUY ZONE" ? "looking for an entry" : a.word === "AVOID" ? "staying out" : "waiting for a cleaner setup"}` });
+    }
+    const rm = riskMood();
+    if (rm && lastThought._mood !== rm.title) { lastThought._mood = rm.title; thoughts.unshift({ t, lvl: rm.lvl, txt: `Big picture: ${rm.title.toLowerCase()}. ${rm.text}` }); }
+    thoughts.length = Math.min(thoughts.length, 14);
+  }
+  function renderBrain() {
+    const b = brainState();
+    if (!b) return;
+    think(b.ms);
+    if ($("view-home").hidden) return;
+    const svg = $("brainRings"), rings = [[84, b.trend, "var(--blue-2)"], [64, b.mom, "var(--ember)"], [44, b.risk, "var(--up)"]];
+    if (!svg.firstChild) svg.innerHTML = rings.map(([r, , c]) => `<circle cx="100" cy="100" r="${r}" class="rt"/><circle cx="100" cy="100" r="${r}" pathLength="100" stroke="${c}" stroke-dasharray="0 100" class="rv" transform="rotate(-90 100 100)"/>`).join("");
+    svg.querySelectorAll(".rv").forEach((el, i) => el.setAttribute("stroke-dasharray", `${Math.max(0.5, rings[i][1]).toFixed(1)} 100`));
+    $("brainPct").textContent = b.conf + "%";
+    $("brainWord").textContent = b.conf >= 65 ? "hunting" : b.conf >= 45 ? "patient" : "defensive";
+    setHTML($("brainKey"), [["Trend", b.trend, "--blue-2", "how many markets point up"], ["Momentum", b.mom, "--ember", "RSI near the 60 sweet spot"], ["Risk left", b.risk, "--up", "daily loss budget unused"]]
+      .map(([n, v, c, d]) => `<div><i style="background:var(${c})"></i><b>${n}</b><span class="num">${v.toFixed(0)}%</span><small>${d}</small></div>`).join(""));
+    setHTML($("thoughts"), thoughts.map((x) => `<li class="${x.lvl}"><time>${x.t}</time>${esc(x.txt)}</li>`).join(""));
+    setHTML($("sigRings"), b.ms.map((m) => {
+      const a = sigAction(m), v = Math.max(3, Math.abs(m.score));
+      return `<button class="sr" data-sym="${esc(m.sym)}"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" class="rt"/><circle cx="32" cy="32" r="26" pathLength="100" stroke="${RING_COL[a.lvl]}" stroke-dasharray="${v} 100" class="rv" transform="rotate(-90 32 32)"/><text x="32" y="36" text-anchor="middle">${esc(shortName(m.sym))}</text></svg>
+        <b class="${a.lvl}">${a.word}</b><span class="num">${m.score > 0 ? "+" : ""}${m.score} · ${pct(m.chg24)}</span></button>`;
+    }).join(""));
+  }
+  function renderMovers() {
+    const el = $("movers");
+    if (!el || $("view-markets").hidden) return;
+    const rows = Object.entries(board).sort((a, b) => b[1].chg - a[1].chg);
+    const mx = Math.max(0.5, ...rows.map(([, b]) => Math.abs(b.chg)));
+    setHTML(el, rows.map(([s, b]) => `<div class="mv"><span>${esc(shortName(s))}</span><div class="mv-bar"><i class="${b.chg >= 0 ? "pos" : "neg"}" style="width:${((Math.abs(b.chg) / mx) * 50).toFixed(1)}%"></i></div><b class="num ${cls(b.chg)}">${pct(b.chg)}</b></div>`).join("") || `<p class="muted small">Loading…</p>`);
+  }
+
   // ---------- market hours ----------
   function sessionState(tz, oh, om, ch, cm) {
     const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).map((p) => [p.type, p.value]));
@@ -775,6 +831,8 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
     renderSpark();
     renderMarkets();
     renderBoard();
+    renderMovers();
+    renderBrain();
     renderNyse();
 
     $("posList").innerHTML = open.map(([k, p]) => {
@@ -1059,6 +1117,7 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
   loadBoard(); loadFx();
   setInterval(loadBoard, 60000);
   setInterval(loadFx, 60 * 60000);
+  $("sigRings").addEventListener("click", (e) => { const b = e.target.closest("[data-sym]"); if (b) { selected = b.dataset.sym; queueRender(); $("chart").scrollIntoView({ behavior: "smooth", block: "center" }); } });
   $("boardTabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { boardCat = b.dataset.cat; renderBoard(); } });
   $("boardBody").addEventListener("click", (e) => {
     const s = e.target.closest("[data-add]")?.dataset.add;

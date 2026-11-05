@@ -55,6 +55,23 @@
         <div class="kpi"><span class="label">Daily loss used</span><span class="num" id="kLoss">–</span><span class="meter"><i id="kLossBar"></i></span></div>
       </div>
 
+      <div class="brain">
+        <div class="card brain-core">
+          <p class="eyebrow">Bot brain · live</p>
+          <div class="rings-wrap"><svg id="brainRings" viewBox="0 0 200 200" aria-label="Trend, momentum and risk rings"></svg><div class="brain-mid"><b id="brainPct">–</b><span id="brainWord">thinking</span></div></div>
+          <div class="ring-key" id="brainKey"></div>
+        </div>
+        <div class="card terminal">
+          <p class="eyebrow"><span class="rec"></span>What the bot is thinking</p>
+          <ol id="thoughts"><li>Booting up, reading the markets…</li></ol>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><p class="eyebrow">AI signal per market · tap to chart</p><h2>Where to look</h2></div></div>
+        <div class="sigrings" id="sigRings"></div>
+      </div>
+
       <a class="verdict card" href="#coach" id="verdictCard">
         <div class="verdict-head"><span class="v-icon" id="vIcon">…</span><div><p class="eyebrow">AI coach says</p><h2 id="vTitle">Reading the market…</h2></div><span class="go">›</span></div>
         <ul class="ins mini" id="vList"></ul>
@@ -88,6 +105,8 @@
           <button data-cat="metals" class="on">Gold &amp; more</button><button data-cat="stocks">Stocks</button><button data-cat="forex">Forex</button><button data-cat="crypto">Crypto</button>
         </div>
         <div class="board" id="boardBody"></div>
+        <h3 class="mv-h">Today's movers, every market</h3>
+        <div class="movers" id="movers"></div>
         <p class="muted small">Gold trades 24/7 here as PAXG (1 token = 1 oz of real gold) so the bot can trade it with the $28. Stocks need Alpaca paper keys. Forex is the daily ECB rate. Change is vs the day's open / yesterday's close.</p>
       </div>
       <div class="grid2">
