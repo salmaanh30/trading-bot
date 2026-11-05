@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Autopilot Trading Bot</title>
-  <meta name="description" content="Live paper-trading bot: real-time crypto prices, an EMA trend strategy with hard risk limits, Claude's trade plans and an Alpaca paper link.">
-  <meta name="theme-color" content="#08090f">
+  <meta name="description" content="Live paper-trading app: real-time crypto prices, a rule-based bot with hard risk limits, an AI coach that says what's good and bad right now, and Claude's trade plans.">
+  <meta name="theme-color" content="#07080d">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -17,105 +17,192 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
-  <div class="grain" aria-hidden="true"></div>
+  <div class="aurora" aria-hidden="true"><span></span><span></span></div>
 
   <header class="top">
-    <div class="brand"><span class="logo">A</span> Autopilot</div>
-    <div class="status" id="feedStatus"><span class="dot"></span><span>Connecting…</span></div>
+    <div class="brand"><span class="logo" aria-hidden="true">A</span><span>Autopilot</span></div>
+    <div class="top-right">
+      <div class="pill" id="nyse" title="US stock market (New York). Holidays not counted."><span class="dot"></span><span>NYSE</span></div>
+      <div class="pill" id="feedStatus"><span class="dot"></span><span>Connecting…</span></div>
+    </div>
   </header>
 
+  <nav class="nav" aria-label="Main">
+    <a href="#home" data-view="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Home</span></a>
+    <a href="#markets" data-view="markets"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg><span>Markets</span></a>
+    <a href="#bot" data-view="bot"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4M9 12h.01M15 12h.01M9 16h6"/></svg><span>Bot</span></a>
+    <a href="#coach" data-view="coach"><svg viewBox="0 0 24 24"><path d="M12 3l2.4 5.6L20 11l-5.6 2.4L12 19l-2.4-5.6L4 11l5.6-2.4z"/></svg><span>Coach</span><i class="badge" id="coachBadge" hidden></i></a>
+    <a href="#settings" data-view="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/></svg><span>Settings</span></a>
+  </nav>
+
   <main>
-    <section class="hero">
-      <p class="eyebrow">Paper trading · live prices</p>
-      <h1>Let the bot <span class="grad">trade the trend.</span></h1>
-      <p class="lede">Real-time crypto prices, a rule-based strategy with a stop on every trade, and Claude's trade plans, all with fake money until it proves itself.</p>
-
-      <div class="tiles">
-        <div class="tile featured"><span class="label">Equity</span><span class="num" id="statEquity">$0</span><span class="sub" id="statEquitySub">start $10,000</span></div>
-        <div class="tile"><span class="label">Today's P&amp;L</span><span class="num" id="statToday">$0</span><span class="sub" id="statLimit">daily limit</span></div>
-        <div class="tile"><span class="label">Win rate</span><span class="num" id="statWin">–</span><span class="sub" id="statTrades">0 closed trades</span></div>
-        <div class="tile"><span class="label">Open positions</span><span class="num" id="statOpen">0</span><span class="sub" id="statExposure">$0 invested</span></div>
-      </div>
-
-      <div class="controls">
-        <button class="btn primary" id="btnAuto">Start autopilot</button>
-        <button class="btn" id="btnBacktest">Backtest last 5 hours</button>
-        <span class="mode-pill" id="modePill">Simulated money</span>
-      </div>
-    </section>
-
-    <section class="card reveal" aria-labelledby="mkt">
-      <div class="card-head"><div><p class="eyebrow">Live market</p><h2 id="mkt">Watchlist</h2></div></div>
-      <div class="tickers" id="tickers"></div>
-    </section>
-
-    <section class="card reveal" aria-labelledby="chartTitle">
-      <div class="card-head">
-        <div><p class="eyebrow">1-minute candles · EMA 9 / 21 / 50</p><h2 id="chartTitle">BTC-USD</h2></div>
-        <div class="legend"><span class="k k1">EMA 9</span><span class="k k2">EMA 21</span><span class="k k3">EMA 50</span></div>
-      </div>
-      <div class="chart-wrap"><canvas id="chart" height="320"></canvas><div class="tip" id="tip" hidden></div></div>
-      <p class="muted small" id="signalNow">Waiting for data…</p>
-    </section>
-
-    <div class="grid2">
-      <section class="card reveal" aria-labelledby="posH">
-        <div class="card-head"><div><p class="eyebrow">Bot</p><h2 id="posH">Open positions</h2></div></div>
-        <div class="table-wrap"><table><thead><tr><th>Symbol</th><th>Qty</th><th>Entry</th><th>Stop</th><th>Target</th><th>P&amp;L</th><th></th></tr></thead><tbody id="posBody"></tbody></table></div>
-        <p class="empty" id="posEmpty">No open positions. The bot buys when EMA 9 crosses above EMA 21 while price is above EMA 50.</p>
-      </section>
-
-      <section class="card reveal" aria-labelledby="logH">
-        <div class="card-head"><div><p class="eyebrow">Bot</p><h2 id="logH">Activity</h2></div></div>
-        <ol class="log" id="log"></ol>
-      </section>
-    </div>
-
-    <section class="card reveal" aria-labelledby="eqH">
-      <div class="card-head"><div><p class="eyebrow">Performance</p><h2 id="eqH">Closed trades</h2></div></div>
-      <div class="table-wrap"><table><thead><tr><th>Closed</th><th>Symbol</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Why</th><th>P&amp;L</th></tr></thead><tbody id="tradeBody"></tbody></table></div>
-      <p class="empty" id="tradeEmpty">No closed trades yet.</p>
-    </section>
-
-    <section class="card reveal" aria-labelledby="btH" id="btCard" hidden>
-      <div class="card-head"><div><p class="eyebrow">Backtest · same rules, same fees</p><h2 id="btH">Last 5 hours, replayed</h2></div></div>
-      <div id="btOut"></div>
-    </section>
-
-    <section class="card reveal" aria-labelledby="clH">
-      <div class="card-head">
-        <div><p class="eyebrow">From Claude · session salmaan-first-trail-trade-test</p><h2 id="clH">Claude's trade plans</h2></div>
-        <button class="btn small" id="btnSignals">Refresh</button>
-      </div>
-      <p class="muted small" id="sigMeta">Loading signals.json…</p>
-      <div class="plans" id="plans"></div>
-    </section>
-
-    <section class="card reveal" aria-labelledby="brH">
-      <div class="card-head"><div><p class="eyebrow">Broker · paper only</p><h2 id="brH">Alpaca paper account</h2></div></div>
-      <div id="alpacaOut" class="muted small">Not connected. Add your Alpaca <strong>paper</strong> keys in Settings to see your account and send Claude's plans as bracket orders.</div>
-    </section>
-
-    <section class="card reveal" aria-labelledby="setH">
-      <div class="card-head"><div><p class="eyebrow">Your rules</p><h2 id="setH">Settings</h2></div></div>
-      <form class="settings" id="settings">
-        <label>Risk per trade (% of equity)<input type="number" name="riskPct" min="0.1" max="5" step="0.1"></label>
-        <label>Daily loss limit (% of equity)<input type="number" name="dailyLossPct" min="0.5" max="20" step="0.5"></label>
-        <label>Max position size (% of equity)<input type="number" name="maxPosPct" min="5" max="100" step="5"></label>
-        <label>Starting cash ($)<input type="number" name="startCash" min="100" step="100"></label>
-        <label class="wide">Crypto symbols (Coinbase, comma separated)<input type="text" name="symbols" placeholder="BTC-USD, ETH-USD, SOL-USD"></label>
-        <label>Alpaca paper key ID<input type="text" name="alpacaKey" autocomplete="off" spellcheck="false"></label>
-        <label>Alpaca paper secret<input type="password" name="alpacaSecret" autocomplete="off"></label>
-        <p class="muted small wide">Keys stay in this browser only (never in the repo). Orders go to <code>paper-api.alpaca.markets</code>, fake money, and each one asks you first.</p>
-        <div class="wide row">
-          <button class="btn primary" type="submit">Save</button>
-          <button class="btn danger" type="button" id="btnReset">Reset paper account</button>
+    <!-- ================= HOME ================= -->
+    <section class="view" id="view-home" data-view="home">
+      <div class="portfolio">
+        <div>
+          <p class="eyebrow">Paper portfolio</p>
+          <div class="big" id="statEquity">$0.00</div>
+          <div class="chg-line"><span id="statTotal">$0.00</span><span class="muted"> all time</span> · <span id="statToday">$0.00</span><span class="muted"> today</span></div>
         </div>
-      </form>
+        <canvas id="spark" class="spark" aria-label="Equity over time"></canvas>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><span class="label">Cash</span><span class="num" id="kCash">–</span></div>
+        <div class="kpi"><span class="label">Invested</span><span class="num" id="kInv">–</span></div>
+        <div class="kpi"><span class="label">Win rate</span><span class="num" id="kWin">–</span></div>
+        <div class="kpi"><span class="label">Daily loss used</span><span class="num" id="kLoss">–</span><span class="meter"><i id="kLossBar"></i></span></div>
+      </div>
+
+      <a class="verdict card" href="#coach" id="verdictCard">
+        <div class="verdict-head"><span class="v-icon" id="vIcon">…</span><div><p class="eyebrow">AI coach says</p><h2 id="vTitle">Reading the market…</h2></div><span class="go">›</span></div>
+        <ul class="ins mini" id="vList"></ul>
+      </a>
+
+      <div class="card">
+        <div class="chips" id="symChips"></div>
+        <div class="chart-head">
+          <div><span class="sym-big" id="chartSym">–</span> <span class="num" id="chartPx">–</span> <span id="chartChg"></span></div>
+          <div class="seg" id="tfSeg" role="group" aria-label="Timeframe">
+            <button data-tf="60">1m</button><button data-tf="300">5m</button><button data-tf="900">15m</button>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chart"></canvas><div class="tip" id="tip" hidden></div></div>
+        <div class="legend"><span class="k k1">EMA 9</span><span class="k k2">EMA 21</span><span class="k k3">EMA 50</span><span class="k k4">RSI 14</span></div>
+        <p class="muted small" id="signalNow">Waiting for data…</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Open positions</h2><button class="btn primary small" id="btnAuto">Start autopilot</button></div>
+        <div id="posList" class="rows"></div>
+      </div>
     </section>
 
-    <p class="disclaimer">Education and paper trading only. No strategy is guaranteed to make money; most lose after fees. Past and simulated results don't predict real results.</p>
+    <!-- ================= MARKETS ================= -->
+    <section class="view" id="view-markets" data-view="markets" hidden>
+      <div class="grid2">
+        <div class="card">
+          <p class="eyebrow">Crypto mood · alternative.me</p>
+          <h2>Fear &amp; Greed</h2>
+          <div class="fng"><canvas id="fngGauge" width="220" height="130" aria-label="Fear and greed gauge"></canvas><div><div class="big" id="fngVal">–</div><div id="fngLab" class="muted">loading…</div></div></div>
+          <div class="fng-week" id="fngWeek"></div>
+        </div>
+        <div class="card">
+          <p class="eyebrow">Sessions</p>
+          <h2>Market hours</h2>
+          <div class="rows" id="sessions"></div>
+          <p class="muted small">Crypto trades 24/7 but moves most when New York and London overlap. Weekends are thinner and jumpier.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div><p class="eyebrow">Live · Coinbase</p><h2>Watchlist</h2></div><span class="muted small" id="tfNote"></span></div>
+        <div class="table-wrap"><table class="mkt">
+          <thead><tr><th>Market</th><th>Price</th><th>24h</th><th>24h range</th><th>Volume</th><th>RSI</th><th>Volatility</th><th>Trend</th><th>Score</th></tr></thead>
+          <tbody id="mktBody"></tbody>
+        </table></div>
+        <p class="muted small">Score (−100 to +100) mixes trend, momentum, RSI and volume. It's a quick read, not a prediction. Tap a row to chart it.</p>
+      </div>
+    </section>
+
+    <!-- ================= BOT ================= -->
+    <section class="view" id="view-bot" data-view="bot" hidden>
+      <div class="card bot-hero">
+        <div>
+          <p class="eyebrow">Strategy · long only · simulated money</p>
+          <h2>EMA trend follower</h2>
+          <p class="muted small">Buys when EMA 9 crosses above EMA 21 while price is above EMA 50. Stop 1.5 × ATR below entry, target 3 × ATR above (2R). Sells early if EMA 9 drops back under 21. 0.1% fee each side. Runs only while this page is open.</p>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="btnAuto2">Start autopilot</button>
+          <button class="btn" id="btnBacktest">Backtest</button>
+        </div>
+      </div>
+
+      <div class="kpis six">
+        <div class="kpi"><span class="label">Net P&amp;L</span><span class="num" id="sNet">–</span></div>
+        <div class="kpi"><span class="label">Profit factor</span><span class="num" id="sPF">–</span></div>
+        <div class="kpi"><span class="label">Avg win / loss</span><span class="num" id="sAvg">–</span></div>
+        <div class="kpi"><span class="label">Expectancy / trade</span><span class="num" id="sExp">–</span></div>
+        <div class="kpi"><span class="label">Max drawdown</span><span class="num" id="sDD">–</span></div>
+        <div class="kpi"><span class="label">Fees paid</span><span class="num" id="sFees">–</span></div>
+      </div>
+
+      <div class="card" id="btCard" hidden>
+        <div class="card-head"><div><p class="eyebrow">Backtest · same rules, same fees</p><h2 id="btH">Replay</h2></div></div>
+        <div id="btOut"></div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <h2>Closed trades</h2>
+          <div class="rows" id="tradeList"></div>
+        </div>
+        <div class="card">
+          <h2>Activity</h2>
+          <ol class="log" id="log"></ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= COACH ================= -->
+    <section class="view" id="view-coach" data-view="coach" hidden>
+      <div class="card">
+        <div class="verdict-head"><span class="v-icon" id="vIcon2">…</span><div><p class="eyebrow">AI coach · updates live</p><h2 id="vTitle2">Reading the market…</h2></div></div>
+        <div class="ins-cols">
+          <div><h3 class="good-h">Good for us</h3><ul class="ins" id="insGood"></ul></div>
+          <div><h3 class="bad-h">Bad for us</h3><ul class="ins" id="insBad"></ul></div>
+          <div><h3 class="watch-h">Watch</h3><ul class="ins" id="insWatch"></ul></div>
+        </div>
+      </div>
+
+      <div class="card chat">
+        <div class="card-head"><div><p class="eyebrow" id="aiMode">Coach · offline rules</p><h2>Ask the coach</h2></div></div>
+        <div class="msgs" id="msgs" aria-live="polite"></div>
+        <div class="quick" id="quick">
+          <button>Should I trade right now?</button><button>Why am I losing?</button><button>Which coin looks best?</button><button>Review Claude's plans</button><button>Is my risk too high?</button>
+        </div>
+        <form class="ask" id="askForm"><input id="askInput" placeholder="Ask anything about the market or your trades…" autocomplete="off"><button class="btn primary" type="submit">Send</button></form>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div><p class="eyebrow">From Claude · session salmaan-first-trail-trade-test</p><h2>Claude's trade plans</h2></div>
+          <button class="btn small" id="btnSignals">Refresh</button>
+        </div>
+        <p class="muted small" id="sigMeta">Loading signals.json…</p>
+        <div class="plans" id="plans"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><p class="eyebrow">Broker · paper only</p><h2>Alpaca paper account</h2></div></div>
+        <div id="alpacaOut" class="muted small">Not connected. Add your Alpaca <strong>paper</strong> keys in Settings to see the account and send Claude's plans as bracket orders.</div>
+      </div>
+    </section>
+
+    <!-- ================= SETTINGS ================= -->
+    <section class="view" id="view-settings" data-view="settings" hidden>
+      <div class="card">
+        <h2>Your rules</h2>
+        <form class="settings" id="settings">
+          <label>Risk per trade (% of equity)<input type="number" name="riskPct" min="0.1" max="5" step="0.1"></label>
+          <label>Daily loss limit (% of equity)<input type="number" name="dailyLossPct" min="0.5" max="20" step="0.5"></label>
+          <label>Max position size (% of equity)<input type="number" name="maxPosPct" min="5" max="100" step="5"></label>
+          <label>Starting cash ($)<input type="number" name="startCash" min="100" step="100"></label>
+          <label class="wide">Crypto symbols (Coinbase, comma separated)<input type="text" name="symbols" placeholder="BTC-USD, ETH-USD, SOL-USD"></label>
+          <h3 class="wide">Alpaca (paper)</h3>
+          <label>Paper key ID<input type="text" name="alpacaKey" autocomplete="off" spellcheck="false"></label>
+          <label>Paper secret<input type="password" name="alpacaSecret" autocomplete="off"></label>
+          <h3 class="wide">AI coach (optional)</h3>
+          <label class="wide">Anthropic API key<input type="password" name="anthropicKey" autocomplete="off" placeholder="sk-ant-…"></label>
+          <p class="muted small wide">Without a key the coach still works using built-in rules. With a key, chat answers come from Claude (billed to your Anthropic account, a few cents per question). All keys stay in this browser only, never in the repo. Alpaca orders go to the <code>paper-api</code> (fake money) and each one asks first.</p>
+          <div class="wide row">
+            <button class="btn primary" type="submit">Save</button>
+            <button class="btn danger" type="button" id="btnReset">Reset paper account</button>
+          </div>
+        </form>
+      </div>
+      <p class="disclaimer">Education and paper trading only. Not financial advice. No strategy is guaranteed to make money; most lose after fees. Simulated results don't predict real results.</p>
+    </section>
   </main>
 
   <script src="script.js"></script>

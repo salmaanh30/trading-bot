@@ -6,6 +6,10 @@ Live paper-trading bot that runs in the browser. Live site: https://salmaanh30.g
 - **Strategy:** EMA 9 crosses above EMA 21 while price is above EMA 50 → buy. Stop = entry − 1.5×ATR(14), target = entry + 3×ATR (2R). Exits early if EMA 9 crosses back under 21.
 - **Risk rules:** 1% of equity risked per trade, max 25% of equity per position, 3% daily loss limit, 0.1% fee per side. All editable in Settings.
 - **Simulated money** by default. The autopilot only runs while the page is open.
+- **App layout:** Home / Markets / Bot / Coach / Settings (bottom tab bar on phones, sidebar on desktop).
+- **Markets:** 24h change and range, volume, RSI, volatility, trend and a −100…+100 score per coin; crypto Fear & Greed (alternative.me); NYSE / London / Tokyo hours.
+- **Bot stats:** profit factor, avg win/loss, expectancy, max drawdown, fees paid; backtest on 1m / 5m / 15m candles.
+- **AI coach:** live "good for us / bad for us / watch" insights and a verdict, reviews of Claude's plans, and a chat. Works offline with built-in rules; with an Anthropic API key (Settings, stored in the browser only) the chat is answered by Claude Opus 5.5 using a live snapshot of the app.
 - **Alpaca paper** (optional): paste paper keys in Settings. They're stored only in that browser. Every order asks first. Live trading is deliberately not wired up.
 
 ## Claude's trade plans: `signals.json`
