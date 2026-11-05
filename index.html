@@ -38,6 +38,7 @@
   <main>
     <!-- ================= HOME ================= -->
     <section class="view" id="view-home" data-view="home">
+      <div class="ticker" id="ticker" aria-label="All markets ticker"></div>
       <div class="portfolio">
         <div>
           <p class="eyebrow">Paper portfolio</p>
@@ -80,6 +81,15 @@
 
     <!-- ================= MARKETS ================= -->
     <section class="view" id="view-markets" data-view="markets" hidden>
+      <div class="card glow">
+        <div class="card-head"><div><p class="eyebrow">Everything we can watch</p><h2>All markets</h2></div></div>
+        <p class="bigpic" id="bigPic">Reading gold vs crypto…</p>
+        <div class="seg tabs" id="boardTabs">
+          <button data-cat="metals" class="on">Gold &amp; more</button><button data-cat="stocks">Stocks</button><button data-cat="forex">Forex</button><button data-cat="crypto">Crypto</button>
+        </div>
+        <div class="board" id="boardBody"></div>
+        <p class="muted small">Gold trades 24/7 here as PAXG (1 token = 1 oz of real gold) so the bot can trade it with the $28. Stocks need Alpaca paper keys. Forex is the daily ECB rate. Change is vs the day's open / yesterday's close.</p>
+      </div>
       <div class="grid2">
         <div class="card">
           <p class="eyebrow">Crypto mood · alternative.me</p>

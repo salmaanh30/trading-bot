@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg: #07080d;
   --bg-2: #0d0f17;
   --panel: rgba(255, 255, 255, 0.035);
@@ -240,3 +240,26 @@ td:first-child { font-family: var(--body); font-weight: 700; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- v3: violet + ember look, all-markets board, ticker ---------- */
+:root { --accent-2: #ff7a2f; --grad: linear-gradient(120deg, #8b5cf6, #d946ef 55%, #ff7a2f); }
+.aurora span:nth-child(2) { opacity: .13; }
+.card.glow { position: relative; border: 1px solid transparent; background: linear-gradient(var(--bg-2), var(--bg-2)) padding-box, linear-gradient(130deg, rgba(139,92,246,.7), rgba(255,122,47,.5) 60%, rgba(255,255,255,.06)) border-box; box-shadow: 0 20px 60px -30px rgba(139,92,246,.6); }
+.portfolio { background: radial-gradient(120% 140% at 0% 0%, rgba(139,92,246,.22), transparent 60%), radial-gradient(90% 120% at 100% 100%, rgba(255,122,47,.14), transparent 60%); border-radius: var(--radius); }
+.ticker { overflow: hidden; margin: 0 0 14px; padding: 9px 0; border-block: 1px solid var(--line); -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); font: .78rem var(--mono); }
+.ticker:empty { display: none; }
+.ticker .track { display: flex; gap: 26px; width: max-content; animation: tick 70s linear infinite; }
+.ticker span { white-space: nowrap; color: var(--text-2); } .ticker b { color: var(--text); font-weight: 600; } .ticker i { font-style: normal; }
+@keyframes tick { to { transform: translateX(-50%); } }
+.bigpic { margin: 10px 0 12px; color: var(--text-2); font-size: .9rem; }
+.seg.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.seg.tabs button { font: 600 .8rem var(--body); color: var(--text-2); background: var(--panel); border: 1px solid var(--line); border-radius: 99px; padding: 7px 14px; cursor: pointer; }
+.seg.tabs button.on { color: #fff; background: var(--grad); border-color: transparent; }
+.board { display: grid; gap: 2px; }
+.brow { display: grid; grid-template-columns: 1fr auto auto auto auto; align-items: center; gap: 12px; padding: 10px 8px; border-radius: 12px; }
+.brow:hover { background: var(--panel); }
+.brow b { display: block; font-size: .9rem; } .brow > div > span { font: .7rem var(--mono); color: var(--muted); }
+.brow .num { text-align: right; font-size: .85rem; }
+.mini { font: 700 .72rem var(--body); color: var(--accent-2); background: rgba(255,122,47,.1); border: 1px solid rgba(255,122,47,.4); border-radius: 99px; padding: 4px 10px; cursor: pointer; }
+@media (max-width: 520px) { .brow { grid-template-columns: 1fr auto auto auto; gap: 8px; } .brow > :nth-child(4) { display: none; } }
+@media (prefers-reduced-motion: reduce) { .ticker { overflow-x: auto; } }

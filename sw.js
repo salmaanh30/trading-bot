@@ -1,6 +1,6 @@
-// Offline shell for Autopilot. Network first, so you always get the latest version when online.
+﻿// Offline shell for Autopilot. Network first, so you always get the latest version when online.
 // Market data and Alpaca calls are never cached (they're cross-origin and skipped below).
-const CACHE = "autopilot-v2";
+const CACHE = "autopilot-v3";
 const ASSETS = ["./", "./index.html", "./style.css", "./script.js", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {

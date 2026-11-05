@@ -21,8 +21,8 @@
   const TF_NAME = { 60: "1m", 300: "5m", 900: "15m" };
 
   const DEFAULTS = {
-    settings: { riskPct: 1, dailyLossPct: 3, maxPosPct: 50, startCash: 28, symbols: "BTC-USD, ETH-USD, SOL-USD", tf: 300, alpacaKey: "", alpacaSecret: "", anthropicKey: "" },
-    v: 2,
+    settings: { riskPct: 1, dailyLossPct: 3, maxPosPct: 50, startCash: 28, symbols: "BTC-USD, ETH-USD, SOL-USD, PAXG-USD", tf: 300, alpacaKey: "", alpacaSecret: "", anthropicKey: "" },
+    v: 3,
     cash: 28,
     positions: {},
     trades: [],
@@ -52,9 +52,13 @@
       if (raw) {
         const s = JSON.parse(raw);
         const st = { ...structuredClone(DEFAULTS), ...s, settings: { ...DEFAULTS.settings, ...(s.settings || {}) } };
-        if (s.v !== DEFAULTS.v) { // v2: the account moved to a $28 budget, so start it fresh at $28
-          Object.assign(st.settings, { startCash: DEFAULTS.settings.startCash, maxPosPct: DEFAULTS.settings.maxPosPct });
-          Object.assign(st, { v: DEFAULTS.v, cash: DEFAULTS.cash, positions: {}, trades: [], eqHist: [] });
+        if (s.v !== DEFAULTS.v) {
+          if (!(s.v >= 2)) { // v2: the account moved to a $28 budget, so start it fresh at $28
+            Object.assign(st.settings, { startCash: DEFAULTS.settings.startCash, maxPosPct: DEFAULTS.settings.maxPosPct });
+            Object.assign(st, { cash: DEFAULTS.cash, positions: {}, trades: [], eqHist: [] });
+          }
+          if (!/PAXG-USD/i.test(st.settings.symbols)) st.settings.symbols += ", PAXG-USD"; // v3: gold joins the bot
+          st.v = DEFAULTS.v;
           try { localStorage.setItem(STORE, JSON.stringify(st)); } catch (e) { /* ignore */ }
         }
         return st;
@@ -86,7 +90,7 @@
   const hhmm = (ts) => new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const today = () => new Date().toDateString();
-  const coin = (sym) => sym.split("-")[0];
+  const coin = (sym) => (sym === "PAXG-USD" ? "GOLD" : sym.split("-")[0]);
   const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   const dur = (mins) => (mins >= 1440 ? `${Math.floor(mins / 1440)}d ${Math.floor((mins % 1440) / 60)}h` : mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`);
 
@@ -319,6 +323,79 @@
     } catch (e) { /* optional */ }
   }
 
+  // ---------- all-markets board: gold, stocks, forex, more crypto ----------
+  // cb = Coinbase (free, no key) · stk = Alpaca data (needs paper keys) · fx = ECB rates via Frankfurter (daily)
+  const BOARD = {
+    metals: ["Gold & commodities", [["PAXG-USD", "Gold · 1 oz (PAXG)", "cb"], ["GLD", "Gold ETF", "stk"], ["SLV", "Silver ETF", "stk"], ["USO", "Oil ETF", "stk"], ["UNG", "Natural gas ETF", "stk"], ["CPER", "Copper ETF", "stk"]]],
+    stocks: ["Stocks & indices", [["SPY", "S&P 500", "stk"], ["QQQ", "Nasdaq 100", "stk"], ["DIA", "Dow 30", "stk"], ["IWM", "Russell 2000", "stk"], ["TLT", "US bonds 20y", "stk"], ["NVDA", "Nvidia", "stk"], ["AAPL", "Apple", "stk"], ["MSFT", "Microsoft", "stk"], ["TSLA", "Tesla", "stk"], ["AMZN", "Amazon", "stk"], ["META", "Meta", "stk"]]],
+    forex: ["Forex", [["USD/ZAR", "Dollar → Rand", "fx"], ["EUR/USD", "Euro", "fx"], ["GBP/USD", "Pound", "fx"], ["USD/JPY", "Yen", "fx"], ["USD/CHF", "Swiss franc", "fx"], ["AUD/USD", "Aussie dollar", "fx"]]],
+    crypto: ["Crypto", [["BTC-USD", "Bitcoin", "cb"], ["ETH-USD", "Ethereum", "cb"], ["SOL-USD", "Solana", "cb"], ["XRP-USD", "XRP", "cb"], ["DOGE-USD", "Dogecoin", "cb"], ["ADA-USD", "Cardano", "cb"], ["AVAX-USD", "Avalanche", "cb"], ["LINK-USD", "Chainlink", "cb"], ["LTC-USD", "Litecoin", "cb"]]],
+  };
+  const board = {}; // sym -> {price, chg}
+  let boardCat = "metals";
+  const boardRows = (src) => Object.values(BOARD).flatMap(([, r]) => r).filter((r) => r[2] === src);
+  async function loadBoard() {
+    await Promise.allSettled(boardRows("cb").map(async ([s]) => {
+      const d = await (await fetch(`${CB_REST}/products/${s}/stats`)).json();
+      const last = +d.last, open = +d.open;
+      if (last) board[s] = { price: last, chg: open ? ((last - open) / open) * 100 : 0 };
+    }));
+    if (S.settings.alpacaKey && S.settings.alpacaSecret) {
+      try {
+        const syms = boardRows("stk").map((r) => r[0]).join(",");
+        const d = await (await fetch(`${ALPACA_DATA}/v2/stocks/snapshots?feed=iex&symbols=${syms}`, { headers: alpacaHeaders() })).json();
+        for (const [s, x] of Object.entries(d || {})) {
+          const p = x?.latestTrade?.p, prev = x?.prevDailyBar?.c;
+          if (p) board[s] = { price: p, chg: prev ? ((p - prev) / prev) * 100 : 0 };
+        }
+      } catch (e) { /* optional */ }
+    }
+    queueRender();
+  }
+  async function loadFx() {
+    try {
+      const from = new Date(Date.now() - 10 * 864e5).toISOString().slice(0, 10);
+      const d = await (await fetch(`https://api.frankfurter.dev/v1/${from}..?base=USD&symbols=ZAR,EUR,GBP,JPY,CHF,AUD`)).json();
+      const days = Object.keys(d.rates).sort(), a = d.rates[days.at(-2)], b = d.rates[days.at(-1)];
+      for (const r of boardRows("fx")) {
+        const [x, y] = r[0].split("/"), q = x === "USD" ? y : x, inv = x !== "USD";
+        const now = inv ? 1 / b[q] : b[q], then = inv ? 1 / a[q] : a[q];
+        board[r[0]] = { price: now, chg: ((now - then) / then) * 100 };
+      }
+      queueRender();
+    } catch (e) { /* optional */ }
+  }
+  function riskMood() {
+    const g = board["PAXG-USD"]?.chg, btc = board["BTC-USD"]?.chg, spy = board.SPY?.chg;
+    if (g == null || btc == null) return null;
+    const risk = spy != null ? (btc + spy) / 2 : btc;
+    if (risk > 0.5 && g < risk) return { lvl: "good", title: "Risk-on day", text: `Crypto${spy != null ? " and stocks" : ""} are beating gold (${pct(risk)} vs ${pct(g)}). Buyers are confident, so trend trades work better.` };
+    if (risk < -0.5 && g > risk) return { lvl: "bad", title: "Risk-off day", text: `Money is hiding in gold (${pct(g)}) while crypto${spy != null ? " and stocks" : ""} slide (${pct(risk)}). Long trades are fighting the tide.` };
+    return { lvl: "watch", title: "No clear money flow", text: `Gold ${pct(g)}, crypto ${pct(btc)}${spy != null ? `, S&P ${pct(spy)}` : ""}. Nothing is leading, so expect chop.` };
+  }
+  const moodTag = (c) => (c > 1 ? ["good", "Strong"] : c > 0.2 ? ["good", "Up"] : c < -1 ? ["bad", "Weak"] : c < -0.2 ? ["bad", "Down"] : ["watch", "Flat"]);
+  const fmtBoard = (s, p) => (s.includes("/") ? p.toFixed(s.includes("JPY") || s.includes("ZAR") ? 3 : 4) : px(p));
+  function renderBoard() {
+    const [title, rows] = BOARD[boardCat], inBot = symbols();
+    document.querySelectorAll("#boardTabs button").forEach((b) => b.classList.toggle("on", b.dataset.cat === boardCat));
+    const needKeys = rows.some((r) => r[2] === "stk") && !S.settings.alpacaKey;
+    $("boardBody").innerHTML = rows.map(([s, name, src]) => {
+      const b = board[s];
+      if (!b) return src === "stk" && needKeys ? "" : `<div class="brow"><div><b>${esc(name)}</b><span>${esc(s)}</span></div><span class="muted">loading…</span></div>`;
+      const [lvl, word] = moodTag(b.chg);
+      const act = src === "cb" ? (inBot.includes(s) ? `<span class="tag">In bot</span>` : `<button class="mini" data-add="${esc(s)}">+ Bot</button>`) : "";
+      return `<div class="brow"><div><b>${esc(name)}</b><span>${esc(s)}</span></div><div class="num">${fmtBoard(s, b.price)}</div><div class="num ${cls(b.chg)}">${arrow(b.chg)}${pct(b.chg)}</div><span class="tag ${lvl}">${word}</span>${act}</div>`;
+    }).join("") + (needKeys ? `<p class="muted small">Add your Alpaca <b>paper</b> keys in Settings to see live ${esc(title.toLowerCase())} prices (free).</p>` : "");
+    const rm = riskMood();
+    $("bigPic").innerHTML = rm ? `<span class="tag ${rm.lvl}">${rm.title}</span> ${esc(rm.text)}` : "Reading gold vs crypto…";
+    // home ticker
+    const all = Object.entries(board);
+    if (all.length) {
+      const items = all.map(([s, b]) => `<span><b>${esc(s === "PAXG-USD" ? "GOLD" : s.replace("-USD", ""))}</b> ${fmtBoard(s, b.price)} <i class="${cls(b.chg)}">${arrow(b.chg)}${pct(b.chg)}</i></span>`).join("");
+      $("ticker").innerHTML = `<div class="track">${items}${items}</div>`;
+    }
+  }
+
   // ---------- market hours ----------
   function sessionState(tz, oh, om, ch, cm) {
     const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).map((p) => [p.type, p.value]));
@@ -437,6 +514,8 @@
     }
     const n = nyse();
     if (!n.open && plans.some((p) => p.status !== "done" && p.status !== "example")) add("watch", "US stock market is closed", `Claude's stock plans can't fill until the open in ${dur(n.mins)}.`);
+    const rm = riskMood();
+    if (rm) add(rm.lvl, rm.title, rm.text);
     if (!S.auto) add("watch", "Autopilot is off", "The bot is watching but won't trade. Start it on the Home or Bot tab.");
 
     const g = out.filter((x) => x.lvl === "good").length, b = out.filter((x) => x.lvl === "bad").length;
@@ -500,6 +579,8 @@
       timeframe: TF_NAME[tf()],
       us_stock_market: n.open ? `open, closes in ${dur(n.mins)}` : `closed, opens in ${dur(n.mins)}`,
       fear_greed: fng ? fng.map((f) => f.value) : null,
+      all_markets_today: Object.fromEntries(Object.entries(board).map(([k, b]) => [k, { price: +b.price.toFixed(4), change_pct: +b.chg.toFixed(2) }])),
+      big_picture: riskMood()?.title || "unknown",
       markets: symbols().map(metrics).filter(Boolean).map((m) => ({ symbol: m.sym, price: +m.price.toFixed(4), change_24h_pct: m.chg24 && +m.chg24.toFixed(2), rsi: +m.rsi.toFixed(1), atr_pct: +m.atrPct.toFixed(3), trend: m.trend, score: m.score, volume_vs_normal: +m.volRatio.toFixed(2), ema_crosses_last_60: m.crosses })),
       account: { equity: +equity().toFixed(2), cash: +S.cash.toFixed(2), today_pnl: +todayPnl().toFixed(2), daily_loss_limit: +dailyLimit().toFixed(2), autopilot: S.auto, rules: { risk_pct: S.settings.riskPct, max_pos_pct: S.settings.maxPosPct } },
       positions: Object.entries(S.positions).map(([s, p]) => ({ symbol: s, qty: p.qty, entry: p.entry, stop: p.stop, target: p.target, now: market[s]?.price })),
@@ -686,6 +767,7 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
     renderChart();
     renderSpark();
     renderMarkets();
+    renderBoard();
     renderNyse();
 
     $("posList").innerHTML = open.map(([k, p]) => {
@@ -884,11 +966,13 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
     const lo = Math.min(...pts.map((p) => p.eq)), hi = Math.max(...pts.map((p) => p.eq)), span = hi - lo || 1;
     const t0 = pts[0].t, t1 = pts.at(-1).t || t0 + 1;
     const X = (t) => ((t - t0) / (t1 - t0 || 1)) * W, Y = (v) => h - 4 - ((v - lo) / span) * (h - 8);
-    const col = pts.at(-1).eq >= pts[0].eq ? cssVar("--up") : cssVar("--down");
-    const grad = g.createLinearGradient(0, 0, 0, h); grad.addColorStop(0, col + "55"); grad.addColorStop(1, col + "00");
-    g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(X(p.t), Y(p.eq)) : g.moveTo(X(p.t), Y(p.eq))));
-    g.strokeStyle = col; g.lineWidth = 2; g.stroke();
-    g.lineTo(W, h); g.lineTo(0, h); g.closePath(); g.fillStyle = grad; g.fill();
+    // glowing bars: one per time slot, height = equity in that slot
+    const n = Math.max(12, Math.min(48, Math.floor(W / 9))), bw = W / n;
+    const slots = Array.from({ length: n }, (_, i) => { const t = t0 + ((t1 - t0) * (i + 1)) / n; let v = pts[0].eq; for (const p of pts) if (p.t <= t) v = p.eq; return v; });
+    const grad = g.createLinearGradient(0, 0, 0, h); grad.addColorStop(0, cssVar("--accent-1")); grad.addColorStop(1, cssVar("--accent-1") + "22");
+    g.shadowColor = cssVar("--accent-1"); g.shadowBlur = 10; g.fillStyle = grad;
+    slots.forEach((v, i) => { const y = Y(v); g.beginPath(); g.roundRect(i * bw + bw * 0.28, y, bw * 0.44, h - y, 3); g.fill(); });
+    g.shadowBlur = 0; void X;
   }
 
   canvas.addEventListener("pointermove", (e) => { hoverX = e.offsetX; queueRender(); });
@@ -964,6 +1048,16 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
   boot();
   loadSignals();
   loadFng();
+  loadBoard(); loadFx();
+  setInterval(loadBoard, 60000);
+  setInterval(loadFx, 60 * 60000);
+  $("boardTabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { boardCat = b.dataset.cat; renderBoard(); } });
+  $("boardBody").addEventListener("click", (e) => {
+    const s = e.target.closest("[data-add]")?.dataset.add;
+    if (!s) return;
+    S.settings.symbols = [...symbols(), s].join(", "); save(); fillForm();
+    log(`${coin(s)} added to the bot's markets.`); boot();
+  });
   refreshAlpaca();
   setInterval(refreshAlpaca, 30000);
   setInterval(loadSignals, 120000);
