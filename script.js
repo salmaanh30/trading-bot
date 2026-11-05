@@ -383,7 +383,7 @@
       const b = board[s];
       if (!b) return src === "stk" && needKeys ? "" : `<div class="brow"><div><b>${esc(name)}</b><span>${esc(s)}</span></div><span class="muted">loading…</span></div>`;
       const [lvl, word] = moodTag(b.chg);
-      const act = src === "cb" ? (inBot.includes(s) ? `<span class="tag">In bot</span>` : `<button class="mini" data-add="${esc(s)}">+ Bot</button>`) : "";
+      const act = src === "cb" ? (inBot.includes(s) ? `<span class="tag">In bot</span>` : `<button class="addbot" data-add="${esc(s)}">+ Bot</button>`) : "";
       return `<div class="brow"><div><b>${esc(name)}</b><span>${esc(s)}</span></div><div class="num">${fmtBoard(s, b.price)}</div><div class="num ${cls(b.chg)}">${arrow(b.chg)}${pct(b.chg)}</div><span class="tag ${lvl}">${word}</span>${act}</div>`;
     }).join("") + (needKeys ? `<p class="muted small">Add your Alpaca <b>paper</b> keys in Settings to see live ${esc(title.toLowerCase())} prices (free).</p>` : "");
     const rm = riskMood();
@@ -969,8 +969,9 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
     // glowing bars: one per time slot, height = equity in that slot
     const n = Math.max(12, Math.min(48, Math.floor(W / 9))), bw = W / n;
     const slots = Array.from({ length: n }, (_, i) => { const t = t0 + ((t1 - t0) * (i + 1)) / n; let v = pts[0].eq; for (const p of pts) if (p.t <= t) v = p.eq; return v; });
-    const grad = g.createLinearGradient(0, 0, 0, h); grad.addColorStop(0, cssVar("--accent-1")); grad.addColorStop(1, cssVar("--accent-1") + "22");
-    g.shadowColor = cssVar("--accent-1"); g.shadowBlur = 10; g.fillStyle = grad;
+    const grad = g.createLinearGradient(0, 0, 0, h); const sc = getComputedStyle(cv).getPropertyValue("--spark").trim() || cssVar("--accent-1");
+    grad.addColorStop(0, sc); grad.addColorStop(1, "rgba(255,255,255,.12)");
+    g.shadowColor = sc; g.shadowBlur = 10; g.fillStyle = grad;
     slots.forEach((v, i) => { const y = Y(v); g.beginPath(); g.roundRect(i * bw + bw * 0.28, y, bw * 0.44, h - y, 3); g.fill(); });
     g.shadowBlur = 0; void X;
   }
