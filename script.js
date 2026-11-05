@@ -390,9 +390,16 @@
     $("bigPic").innerHTML = rm ? `<span class="tag ${rm.lvl}">${rm.title}</span> ${esc(rm.text)}` : "Reading gold vs crypto…";
     // home ticker
     const all = Object.entries(board);
-    if (all.length) {
-      const items = all.map(([s, b]) => `<span><b>${esc(s === "PAXG-USD" ? "GOLD" : s.replace("-USD", ""))}</b> ${fmtBoard(s, b.price)} <i class="${cls(b.chg)}">${arrow(b.chg)}${pct(b.chg)}</i></span>`).join("");
-      $("ticker").innerHTML = `<div class="track">${items}${items}</div>`;
+    // Build the scrolling strip once; afterwards only swap the numbers so the animation never restarts.
+    const tk = $("ticker"), keys = all.map(([s]) => s).join();
+    const inner = (s, b) => `<b>${esc(s === "PAXG-USD" ? "GOLD" : s.replace("-USD", ""))}</b> ${fmtBoard(s, b.price)} <i class="${cls(b.chg)}">${arrow(b.chg)}${pct(b.chg)}</i>`;
+    if (all.length && tk.dataset.keys !== keys) {
+      const items = all.map(([s, b]) => `<span data-s="${esc(s)}">${inner(s, b)}</span>`).join("");
+      tk.innerHTML = `<div class="track">${items}${items}</div>`;
+      tk.dataset.keys = keys;
+    } else if (all.length && Date.now() - (tk._t || 0) > 3000) {
+      tk._t = Date.now();
+      tk.querySelectorAll("span[data-s]").forEach((el) => { const s = el.dataset.s; if (board[s]) el.innerHTML = inner(s, board[s]); });
     }
   }
 
