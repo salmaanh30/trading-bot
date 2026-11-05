@@ -156,6 +156,23 @@
         <div class="kpi"><span class="label">Fees paid</span><span class="num" id="sFees">–</span></div>
       </div>
 
+      <div class="card glow">
+        <div class="card-head"><div><p class="eyebrow">Every buy signal, graded honestly</p><h2>Signal scorecard</h2></div><span class="tag watch" id="sgVerdict">Need more data</span></div>
+        <div class="sg-top">
+          <div class="rings-wrap sm"><svg id="sgRing" viewBox="0 0 200 200" aria-label="Win rate ring"></svg><div class="brain-mid"><b id="sgWin">–</b><span>win rate</span></div></div>
+          <div class="kpis">
+            <div class="kpi"><span class="label">Graded</span><span class="num" id="sgN">0</span></div>
+            <div class="kpi"><span class="label">Avg after fees</span><span class="num" id="sgAvg">–</span></div>
+            <div class="kpi"><span class="label">Total R</span><span class="num" id="sgR">–</span></div>
+            <div class="kpi"><span class="label">Still open</span><span class="num" id="sgOpen">0</span></div>
+          </div>
+        </div>
+        <div class="table-wrap"><table class="mkt"><thead><tr><th>Group</th><th>Graded</th><th>Win rate</th><th>Avg after fees</th><th>Total R</th><th>Verdict</th></tr></thead><tbody id="sgBreak"></tbody></table></div>
+        <h3 class="mv-h">Signal log · newest first</h3>
+        <div class="rows" id="sgList"></div>
+        <p class="muted small">Each signal gets the bot's stop (1.5× ATR below) and target (3× ATR above). Win = target hit first, loss = stop hit first, otherwise it's closed at the price after 24 hours. Results include 0.2% fees. Signals are only recorded while the app is open. "R" = profit measured in units of the risk taken. A verdict needs 20 graded signals.</p>
+      </div>
+
       <div class="card" id="btCard" hidden>
         <div class="card-head"><div><p class="eyebrow">Backtest · same rules, same fees</p><h2 id="btH">Replay</h2></div></div>
         <div id="btOut"></div>

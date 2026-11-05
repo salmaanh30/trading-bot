@@ -23,6 +23,7 @@
   const DEFAULTS = {
     settings: { riskPct: 1, dailyLossPct: 3, maxPosPct: 50, startCash: 28, symbols: "BTC-USD, ETH-USD, SOL-USD, PAXG-USD", tf: 300, alpacaKey: "", alpacaSecret: "", anthropicKey: "" },
     v: 3,
+    signals: [],
     cash: 28,
     positions: {},
     trades: [],
@@ -252,6 +253,7 @@
   function onCandleClose(sym) {
     const c = market[sym].candles, ind = indicators(c);
     const sig = decide(c, ind, c.length - 1);
+    if (sig && sig.action === "buy") logSignal(sym, "strategy", sig);
     if (!sig || !S.auto) return;
     if (sig.action === "buy") openPosition(sym, sig, "EMA 9 crossed above 21, above EMA 50");
     else if (sig.action === "exit" && S.positions[sym]) closePosition(sym, c[c.length - 1].c, "trend flipped");
@@ -425,6 +427,7 @@
       const a = sigAction(m), key = a.word + m.trend;
       if (lastThought[m.sym] === key) continue;
       lastThought[m.sym] = key;
+      if (a.word === "BUY ZONE") logSignal(m.sym, "ring", { entry: m.price, stop: m.price * (1 - (1.5 * m.atrPct) / 100), target: m.price * (1 + (3 * m.atrPct) / 100) });
       const why = `${m.trend === "up" ? "trend up" : m.trend === "down" ? "trend down" : "choppy"}, RSI ${m.rsi.toFixed(0)}, volume ${m.volRatio.toFixed(1)}× normal`;
       thoughts.unshift({ t, lvl: a.lvl, txt: `${shortName(m.sym)}: ${why} → ${a.word === "BUY ZONE" ? "looking for an entry" : a.word === "AVOID" ? "staying out" : "waiting for a cleaner setup"}` });
     }
@@ -457,6 +460,65 @@
     const rows = Object.entries(board).sort((a, b) => b[1].chg - a[1].chg);
     const mx = Math.max(0.5, ...rows.map(([, b]) => Math.abs(b.chg)));
     setHTML(el, rows.map(([s, b]) => `<div class="mv"><span>${esc(shortName(s))}</span><div class="mv-bar"><i class="${b.chg >= 0 ? "pos" : "neg"}" style="width:${((Math.abs(b.chg) / mx) * 50).toFixed(1)}%"></i></div><b class="num ${cls(b.chg)}">${pct(b.chg)}</b></div>`).join("") || `<p class="muted small">Loading…</p>`);
+  }
+
+  // ---------- signal scorecard: log every buy signal, grade it against what price did next ----------
+  const SRC_NAME = { strategy: "EMA cross (bot's buy rule)", ring: "BUY ZONE ring" };
+  const FEE_RT = 0.2; // % round trip, same as the bot
+  function logSignal(sym, src, { entry, stop, target }) {
+    if (!S.signals) S.signals = [];
+    if (!(entry > stop) || S.signals.some((s) => s.sym === sym && s.src === src && s.status === "open")) return;
+    S.signals.push({ id: Date.now() + sym + src, sym, src, t: Date.now(), entry, stop, target, status: "open" });
+    if (S.signals.length > 300) S.signals.splice(0, S.signals.length - 300);
+    save();
+  }
+  function gradeSignals() {
+    let changed = false;
+    for (const s of S.signals || []) {
+      if (s.status !== "open") continue;
+      const m = market[s.sym];
+      if (!m) continue;
+      let exit = null, status = null;
+      for (const c of m.candles) {
+        if ((c.t + tf()) * 1000 <= s.t) continue; // only candles after the signal
+        if (c.l <= s.stop) { exit = s.stop; status = "loss"; break; } // stop checked first: the honest assumption
+        if (c.h >= s.target) { exit = s.target; status = "win"; break; }
+      }
+      if (!status && Date.now() - s.t > 24 * 3600e3 && m.price) { exit = m.price; status = "expired"; }
+      if (!status) continue;
+      Object.assign(s, { status, exit, res: ((exit - s.entry) / s.entry) * 100 - FEE_RT, r: (exit - s.entry) / (s.entry - s.stop), done: Date.now() });
+      changed = true;
+    }
+    if (changed) save();
+  }
+  function sgStats(list) {
+    const g = list.filter((s) => s.status !== "open");
+    return {
+      n: g.length, open: list.length - g.length,
+      win: g.length ? (g.filter((s) => s.res > 0).length / g.length) * 100 : null,
+      avg: g.length ? g.reduce((a, s) => a + s.res, 0) / g.length : null,
+      R: g.reduce((a, s) => a + s.r, 0),
+    };
+  }
+  const sgVerdict = (st) => (st.n < 20 ? ["watch", `Need more data (${st.n}/20)`] : st.avg > 0 && st.R > 0 ? ["good", "Working"] : st.avg < 0 ? ["bad", "Losing"] : ["watch", "Break-even"]);
+  function renderScore() {
+    if ($("view-bot").hidden) return;
+    const list = S.signals || [], st = sgStats(list), [lvl, word] = sgVerdict(st);
+    const v = $("sgVerdict"); v.className = `tag ${lvl}`; v.textContent = word;
+    const svg = $("sgRing");
+    if (!svg.firstChild) svg.innerHTML = `<circle cx="100" cy="100" r="80" class="rt"/><circle cx="100" cy="100" r="80" pathLength="100" stroke-dasharray="0 100" class="rv" transform="rotate(-90 100 100)"/>`;
+    const rv = svg.querySelector(".rv"); rv.setAttribute("stroke", RING_COL[lvl]); rv.setAttribute("stroke-dasharray", `${Math.max(0.5, st.win || 0).toFixed(1)} 100`);
+    $("sgWin").textContent = st.win == null ? "–" : st.win.toFixed(0) + "%";
+    $("sgN").textContent = st.n; $("sgOpen").textContent = st.open;
+    $("sgAvg").textContent = st.avg == null ? "–" : pct(st.avg);
+    $("sgR").textContent = st.n ? (st.R > 0 ? "+" : "") + st.R.toFixed(1) + "R" : "–";
+    const groups = [...Object.keys(SRC_NAME).map((k) => [SRC_NAME[k], list.filter((s) => s.src === k)]), ...[...new Set(list.map((s) => s.sym))].map((y) => [coin(y), list.filter((s) => s.sym === y)])];
+    setHTML($("sgBreak"), groups.map(([name, l]) => { const g = sgStats(l), [gl, gw] = sgVerdict(g); return `<tr><td>${esc(name)}</td><td>${g.n}</td><td>${g.win == null ? "–" : g.win.toFixed(0) + "%"}</td><td class="${cls(g.avg)}">${g.avg == null ? "–" : pct(g.avg)}</td><td>${g.n ? g.R.toFixed(1) + "R" : "–"}</td><td><span class="tag ${gl}">${esc(gw)}</span></td></tr>`; }).join(""));
+    const badge = { open: ["watch", "Open"], win: ["good", "Target hit"], loss: ["bad", "Stopped out"], expired: ["watch", "Expired 24h"] };
+    setHTML($("sgList"), [...list].reverse().slice(0, 40).map((s) => {
+      const [bl, bw] = badge[s.status], when = new Date(s.t).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
+      return `<div class="r"><div><div class="t">${esc(coin(s.sym))} · ${esc(SRC_NAME[s.src])}</div><div class="s">${when} · in ${px(s.entry)} · stop ${px(s.stop)} · target ${px(s.target)}</div></div><div class="v"><span class="tag ${bl}">${bw}</span>${s.res != null ? ` <b class="num ${cls(s.res)}">${pct(s.res)}</b>` : ""}</div></div>`;
+    }).join("") || `<p class="empty">No signals yet. They appear here automatically while the app is open.</p>`);
   }
 
   // ---------- market hours ----------
@@ -644,6 +706,7 @@
       fear_greed: fng ? fng.map((f) => f.value) : null,
       all_markets_today: Object.fromEntries(Object.entries(board).map(([k, b]) => [k, { price: +b.price.toFixed(4), change_pct: +b.chg.toFixed(2) }])),
       big_picture: riskMood()?.title || "unknown",
+      signal_scorecard: { ...sgStats(S.signals || []), verdict: sgVerdict(sgStats(S.signals || []))[1] },
       markets: symbols().map(metrics).filter(Boolean).map((m) => ({ symbol: m.sym, price: +m.price.toFixed(4), change_24h_pct: m.chg24 && +m.chg24.toFixed(2), rsi: +m.rsi.toFixed(1), atr_pct: +m.atrPct.toFixed(3), trend: m.trend, score: m.score, volume_vs_normal: +m.volRatio.toFixed(2), ema_crosses_last_60: m.crosses })),
       account: { equity: +equity().toFixed(2), cash: +S.cash.toFixed(2), today_pnl: +todayPnl().toFixed(2), daily_loss_limit: +dailyLimit().toFixed(2), autopilot: S.auto, rules: { risk_pct: S.settings.riskPct, max_pos_pct: S.settings.maxPosPct } },
       positions: Object.entries(S.positions).map(([s, p]) => ({ symbol: s, qty: p.qty, entry: p.entry, stop: p.stop, target: p.target, now: market[s]?.price })),
@@ -833,6 +896,8 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
     renderBoard();
     renderMovers();
     renderBrain();
+    gradeSignals();
+    renderScore();
     renderNyse();
 
     $("posList").innerHTML = open.map(([k, p]) => {

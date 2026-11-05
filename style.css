@@ -356,3 +356,8 @@ main { padding-bottom: calc(var(--nav-h) + 56px + env(safe-area-inset-bottom)); 
 .mv-bar i { position: absolute; top: 0; bottom: 0; border-radius: 3px; transition: width .6s var(--ease); }
 .mv-bar .pos { left: 50%; background: linear-gradient(90deg, rgba(52,211,153,.4), var(--up)); }
 .mv-bar .neg { right: 50%; background: linear-gradient(270deg, rgba(248,113,113,.4), var(--down)); }
+/* ---------- v6: signal scorecard ---------- */
+.sg-top { display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: center; margin-bottom: 14px; }
+.rings-wrap.sm { width: 170px; margin: 0 auto; }
+.sg-top .kpis { margin-top: 0; grid-template-columns: 1fr 1fr; }
+@media (max-width: 600px) { .sg-top { grid-template-columns: 1fr; } }
