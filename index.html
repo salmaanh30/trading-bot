@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Autopilot Trading Bot</title>
+  <meta name="description" content="Live paper-trading bot: real-time crypto prices, an EMA trend strategy with hard risk limits, Claude's trade plans and an Alpaca paper link.">
+  <meta name="theme-color" content="#08090f">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Manrope:wght@400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="top">
+    <div class="brand"><span class="logo">A</span> Autopilot</div>
+    <div class="status" id="feedStatus"><span class="dot"></span><span>Connecting…</span></div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">Paper trading · live prices</p>
+      <h1>Let the bot <span class="grad">trade the trend.</span></h1>
+      <p class="lede">Real-time crypto prices, a rule-based strategy with a stop on every trade, and Claude's trade plans, all with fake money until it proves itself.</p>
+
+      <div class="tiles">
+        <div class="tile featured"><span class="label">Equity</span><span class="num" id="statEquity">$0</span><span class="sub" id="statEquitySub">start $10,000</span></div>
+        <div class="tile"><span class="label">Today's P&amp;L</span><span class="num" id="statToday">$0</span><span class="sub" id="statLimit">daily limit</span></div>
+        <div class="tile"><span class="label">Win rate</span><span class="num" id="statWin">–</span><span class="sub" id="statTrades">0 closed trades</span></div>
+        <div class="tile"><span class="label">Open positions</span><span class="num" id="statOpen">0</span><span class="sub" id="statExposure">$0 invested</span></div>
+      </div>
+
+      <div class="controls">
+        <button class="btn primary" id="btnAuto">Start autopilot</button>
+        <button class="btn" id="btnBacktest">Backtest last 5 hours</button>
+        <span class="mode-pill" id="modePill">Simulated money</span>
+      </div>
+    </section>
+
+    <section class="card reveal" aria-labelledby="mkt">
+      <div class="card-head"><div><p class="eyebrow">Live market</p><h2 id="mkt">Watchlist</h2></div></div>
+      <div class="tickers" id="tickers"></div>
+    </section>
+
+    <section class="card reveal" aria-labelledby="chartTitle">
+      <div class="card-head">
+        <div><p class="eyebrow">1-minute candles · EMA 9 / 21 / 50</p><h2 id="chartTitle">BTC-USD</h2></div>
+        <div class="legend"><span class="k k1">EMA 9</span><span class="k k2">EMA 21</span><span class="k k3">EMA 50</span></div>
+      </div>
+      <div class="chart-wrap"><canvas id="chart" height="320"></canvas><div class="tip" id="tip" hidden></div></div>
+      <p class="muted small" id="signalNow">Waiting for data…</p>
+    </section>
+
+    <div class="grid2">
+      <section class="card reveal" aria-labelledby="posH">
+        <div class="card-head"><div><p class="eyebrow">Bot</p><h2 id="posH">Open positions</h2></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Symbol</th><th>Qty</th><th>Entry</th><th>Stop</th><th>Target</th><th>P&amp;L</th><th></th></tr></thead><tbody id="posBody"></tbody></table></div>
+        <p class="empty" id="posEmpty">No open positions. The bot buys when EMA 9 crosses above EMA 21 while price is above EMA 50.</p>
+      </section>
+
+      <section class="card reveal" aria-labelledby="logH">
+        <div class="card-head"><div><p class="eyebrow">Bot</p><h2 id="logH">Activity</h2></div></div>
+        <ol class="log" id="log"></ol>
+      </section>
+    </div>
+
+    <section class="card reveal" aria-labelledby="eqH">
+      <div class="card-head"><div><p class="eyebrow">Performance</p><h2 id="eqH">Closed trades</h2></div></div>
+      <div class="table-wrap"><table><thead><tr><th>Closed</th><th>Symbol</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Why</th><th>P&amp;L</th></tr></thead><tbody id="tradeBody"></tbody></table></div>
+      <p class="empty" id="tradeEmpty">No closed trades yet.</p>
+    </section>
+
+    <section class="card reveal" aria-labelledby="btH" id="btCard" hidden>
+      <div class="card-head"><div><p class="eyebrow">Backtest · same rules, same fees</p><h2 id="btH">Last 5 hours, replayed</h2></div></div>
+      <div id="btOut"></div>
+    </section>
+
+    <section class="card reveal" aria-labelledby="clH">
+      <div class="card-head">
+        <div><p class="eyebrow">From Claude · session salmaan-first-trail-trade-test</p><h2 id="clH">Claude's trade plans</h2></div>
+        <button class="btn small" id="btnSignals">Refresh</button>
+      </div>
+      <p class="muted small" id="sigMeta">Loading signals.json…</p>
+      <div class="plans" id="plans"></div>
+    </section>
+
+    <section class="card reveal" aria-labelledby="brH">
+      <div class="card-head"><div><p class="eyebrow">Broker · paper only</p><h2 id="brH">Alpaca paper account</h2></div></div>
+      <div id="alpacaOut" class="muted small">Not connected. Add your Alpaca <strong>paper</strong> keys in Settings to see your account and send Claude's plans as bracket orders.</div>
+    </section>
+
+    <section class="card reveal" aria-labelledby="setH">
+      <div class="card-head"><div><p class="eyebrow">Your rules</p><h2 id="setH">Settings</h2></div></div>
+      <form class="settings" id="settings">
+        <label>Risk per trade (% of equity)<input type="number" name="riskPct" min="0.1" max="5" step="0.1"></label>
+        <label>Daily loss limit (% of equity)<input type="number" name="dailyLossPct" min="0.5" max="20" step="0.5"></label>
+        <label>Max position size (% of equity)<input type="number" name="maxPosPct" min="5" max="100" step="5"></label>
+        <label>Starting cash ($)<input type="number" name="startCash" min="100" step="100"></label>
+        <label class="wide">Crypto symbols (Coinbase, comma separated)<input type="text" name="symbols" placeholder="BTC-USD, ETH-USD, SOL-USD"></label>
+        <label>Alpaca paper key ID<input type="text" name="alpacaKey" autocomplete="off" spellcheck="false"></label>
+        <label>Alpaca paper secret<input type="password" name="alpacaSecret" autocomplete="off"></label>
+        <p class="muted small wide">Keys stay in this browser only (never in the repo). Orders go to <code>paper-api.alpaca.markets</code>, fake money, and each one asks you first.</p>
+        <div class="wide row">
+          <button class="btn primary" type="submit">Save</button>
+          <button class="btn danger" type="button" id="btnReset">Reset paper account</button>
+        </div>
+      </form>
+    </section>
+
+    <p class="disclaimer">Education and paper trading only. No strategy is guaranteed to make money; most lose after fees. Past and simulated results don't predict real results.</p>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

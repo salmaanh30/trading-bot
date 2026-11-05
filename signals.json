@@ -1,0 +1,17 @@
+{
+  "updated": "2026-11-05T00:00:00Z",
+  "source": "salmaan-first-trail-trade-test",
+  "note": "Example plan: waiting for the first real scan from the trading session.",
+  "plans": [
+    {
+      "symbol": "AAPL",
+      "side": "long",
+      "status": "example",
+      "setup": "Example only: opening-range breakout. Replace with a real plan from /trader-scanner → /trader-entry → /trader-exit.",
+      "entry": 230.5,
+      "stop": 228.9,
+      "target": 233.7,
+      "notes": "Not a real signal."
+    }
+  ]
+}
