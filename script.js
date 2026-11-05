@@ -21,8 +21,9 @@
   const TF_NAME = { 60: "1m", 300: "5m", 900: "15m" };
 
   const DEFAULTS = {
-    settings: { riskPct: 1, dailyLossPct: 3, maxPosPct: 25, startCash: 10000, symbols: "BTC-USD, ETH-USD, SOL-USD", tf: 300, alpacaKey: "", alpacaSecret: "", anthropicKey: "" },
-    cash: 10000,
+    settings: { riskPct: 1, dailyLossPct: 3, maxPosPct: 50, startCash: 28, symbols: "BTC-USD, ETH-USD, SOL-USD", tf: 300, alpacaKey: "", alpacaSecret: "", anthropicKey: "" },
+    v: 2,
+    cash: 28,
     positions: {},
     trades: [],
     log: [],
@@ -50,7 +51,13 @@
       const raw = localStorage.getItem(STORE);
       if (raw) {
         const s = JSON.parse(raw);
-        return { ...structuredClone(DEFAULTS), ...s, settings: { ...DEFAULTS.settings, ...(s.settings || {}) } };
+        const st = { ...structuredClone(DEFAULTS), ...s, settings: { ...DEFAULTS.settings, ...(s.settings || {}) } };
+        if (s.v !== DEFAULTS.v) { // v2: the account moved to a $28 budget, so start it fresh at $28
+          Object.assign(st.settings, { startCash: DEFAULTS.settings.startCash, maxPosPct: DEFAULTS.settings.maxPosPct });
+          Object.assign(st, { v: DEFAULTS.v, cash: DEFAULTS.cash, positions: {}, trades: [], eqHist: [] });
+          try { localStorage.setItem(STORE, JSON.stringify(st)); } catch (e) { /* ignore */ }
+        }
+        return st;
       }
     } catch (e) { /* storage blocked: run in memory */ }
     return structuredClone(DEFAULTS);
@@ -198,7 +205,7 @@
     const st = S.settings, eq = equity();
     if (todayPnl() <= -dailyLimit()) { log(`${sym}: buy signal skipped, daily loss limit hit`); return; }
     const qty = sizeFor(sig.entry, sig.stop, eq, S.cash, st);
-    if (qty * sig.entry < 10) { log(`${sym}: buy signal skipped, not enough cash`); return; }
+    if (qty * sig.entry < 1) { log(`${sym}: buy signal skipped, order would be under $1 (exchange minimum)`); return; }
     const fee = qty * sig.entry * FEE;
     S.cash -= qty * sig.entry + fee;
     S.positions[sym] = { qty, entry: sig.entry, stop: sig.stop, target: sig.target, fee, opened: Date.now() };

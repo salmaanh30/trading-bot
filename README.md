@@ -4,7 +4,8 @@ Live paper-trading bot that runs in the browser. Live site: https://salmaanh30.g
 
 - **Live prices:** Coinbase public feed (no key), 1-minute candles.
 - **Strategy:** EMA 9 crosses above EMA 21 while price is above EMA 50 → buy. Stop = entry − 1.5×ATR(14), target = entry + 3×ATR (2R). Exits early if EMA 9 crosses back under 21.
-- **Risk rules:** 1% of equity risked per trade, max 25% of equity per position, 3% daily loss limit, 0.1% fee per side. All editable in Settings.
+- **Budget:** a $28 paper account (matches the Claude session's $28 budget). Fractional crypto, $1 minimum order.
+- **Risk rules:** 1% of equity risked per trade (28¢), max 50% of equity per position ($14), 3% daily loss limit (84¢), 0.1% fee per side. All editable in Settings.
 - **Simulated money** by default. The autopilot only runs while the page is open.
 - **App layout:** Home / Markets / Bot / Coach / Settings (bottom tab bar on phones, sidebar on desktop).
 - **Markets:** 24h change and range, volume, RSI, volatility, trend and a −100…+100 score per coin; crypto Fear & Greed (alternative.me); NYSE / London / Tokyo hours.
