@@ -391,3 +391,22 @@ main { padding-bottom: calc(var(--nav-h) + 56px + env(safe-area-inset-bottom)); 
 .tc-plan b { color: var(--text); font-family: var(--mono); }
 .tc-plan .k { display: inline-block; min-width: 54px; font: 700 .62rem var(--mono); letter-spacing: .08em; padding: 1px 6px; border-radius: 6px; margin-right: 4px; text-align: center; }
 .k.buy { background: var(--up-bg); color: var(--up); } .k.sell { background: var(--down-bg); color: var(--down); } .k.skip { background: var(--warn-bg); color: var(--warn); }
+/* ---------- v9: trial alerts ---------- */
+.alertbar { position: sticky; top: 58px; z-index: 19; display: grid; gap: 8px; max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+.alertbar:empty { display: none; }
+.al { display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 10px; padding: 14px 16px; border-radius: 20px; background: #12131c; border: 1px solid var(--line-2); box-shadow: 0 18px 50px -18px #000; }
+.al b { font: 800 1.15rem var(--display); letter-spacing: -.01em; }
+.al p { margin: 3px 0 0; font-size: .84rem; color: var(--text-2); max-width: 70ch; }
+.al .al-st { color: var(--text); font-weight: 600; }
+.al.buy { background: linear-gradient(135deg, #0f3b2c, #12131c 70%); border-color: var(--up); animation: alpulse 1.6s ease-in-out infinite; }
+.al.buy b { color: var(--up); }
+.al.sell { background: linear-gradient(135deg, #4a1717, #12131c 70%); border-color: var(--down); animation: alpulse 1.6s ease-in-out infinite; }
+.al.sell b { color: var(--down); }
+.al.skip b, .al.info b { color: var(--warn); } .al.good b { color: var(--up); } .al.bad b { color: var(--down); }
+.al-btns { display: flex; gap: 8px; align-items: center; }
+.al-go { font-size: 1rem; padding: 12px 18px; border-radius: 14px; font-weight: 800; color: #07080d; background: var(--up); border: 0; }
+.al.sell .al-go { background: var(--down); color: #fff; }
+@keyframes alpulse { 50% { box-shadow: 0 0 0 6px rgba(52,211,153,.15), 0 18px 50px -18px #000; } }
+.alert-ctl { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; }
+#btnAlerts.on { background: var(--up); color: #07080d; }
+@media (max-width: 560px) { .al-btns { width: 100%; } .al-go { flex: 1; text-align: center; } }

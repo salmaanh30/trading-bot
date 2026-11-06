@@ -560,14 +560,14 @@
     const trig = t.bars.find((b) => b.mins + 5 >= T_ENTRY_FROM && b.mins + 5 <= T_ENTRY_TO && b.c > hi);
     if (trig) {
       const entry = trig.c, risk = entry - mid, target = entry + 2 * risk;
-      Object.assign(r, { entry, stop: mid, target });
-      if (risk > MAX_LOSS) return { ...r, lvl: "watch", word: `Triggered ${etClock(trig.mins + 5)} ET but stop is $${risk.toFixed(2)} away (over $0.50), so skip` };
+      Object.assign(r, { entry, stop: mid, target, risk, trigMins: trig.mins + 5 });
+      if (risk > MAX_LOSS) return { ...r, wide: true, lvl: "watch", word: `Triggered ${etClock(trig.mins + 5)} ET but stop is $${risk.toFixed(2)} away (over $0.50), so skip` };
       let out = null;
       for (const b of t.bars) {
         if (b.mins <= trig.mins) continue;
-        if (b.mins >= T_FLAT) { out = { lvl: "watch", word: `Flat at 14:30 ET: ${b.c >= entry ? "+" : "−"}$${Math.abs(b.c - entry).toFixed(2)}` }; break; }
-        if (b.l <= mid) { out = { lvl: "bad", word: `Stopped out (−$${risk.toFixed(2)})` }; break; }
-        if (b.h >= target) { out = { lvl: "good", word: `Target hit (+$${(2 * risk).toFixed(2)})` }; break; }
+        if (b.mins >= T_FLAT) { out = { outcome: "flat", lvl: "watch", word: `Flat at 14:30 ET: ${b.c >= entry ? "+" : "−"}$${Math.abs(b.c - entry).toFixed(2)}` }; break; }
+        if (b.l <= mid) { out = { outcome: "stop", lvl: "bad", word: `Stopped out (−$${risk.toFixed(2)})` }; break; }
+        if (b.h >= target) { out = { outcome: "target", lvl: "good", word: `Target hit (+$${(2 * risk).toFixed(2)})` }; break; }
       }
       return { ...r, ...(out || { lvl: "good", word: `Rule triggered ${etClock(trig.mins + 5)} ET, in play` }) };
     }
@@ -576,6 +576,101 @@
     if (now.mins > T_ENTRY_TO) return { ...r, lvl: "off", word: "No entry today (window closed 13:30 ET)" };
     return { ...r, lvl: "watch", word: `Waiting for a 5-min close above ${px(hi)}` };
   }
+  // ---------- trial alerts: banner + sound + vibration + notification, each alert fires once per day ----------
+  let alertsOn = false, wake = null, actx = null, active = [];
+  function alertSeen(id) {
+    try {
+      const d = JSON.parse(localStorage.getItem("autopilot.alerts") || "{}");
+      if (d[id]) return true;
+      d[id] = Date.now();
+      for (const k of Object.keys(d)) if (Date.now() - d[k] > 4 * 864e5) delete d[k];
+      localStorage.setItem("autopilot.alerts", JSON.stringify(d));
+    } catch (e) { /* storage blocked: may repeat */ }
+    return false;
+  }
+  function beep(n) {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      for (let i = 0; i < n; i++) {
+        const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + i * 0.28;
+        o.frequency.value = i % 2 ? 660 : 880; o.connect(g); g.connect(actx.destination);
+        g.gain.setValueAtTime(0.3, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.22); o.start(t); o.stop(t + 0.24);
+      }
+    } catch (e) { /* no audio */ }
+  }
+  function fire(a) {
+    if (alertSeen(a.id)) return;
+    active.unshift(a); renderAlerts();
+    if (!alertsOn) return;
+    const loud = a.kind === "buy" || a.kind === "sell";
+    beep(loud ? 4 : 1);
+    try { navigator.vibrate?.(loud ? [400, 150, 400, 150, 400] : [200]); } catch (e) { /* ignore */ }
+    try { if (window.Notification?.permission === "granted") navigator.serviceWorker?.ready.then((r) => r.showNotification(a.title, { body: a.text, tag: a.id, requireInteraction: loud, icon: "icons/icon-192.png" })); } catch (e) { /* ignore */ }
+  }
+  function renderAlerts() {
+    const keys = !!(S.settings.alpacaKey && S.settings.alpacaSecret);
+    $("alertBar").innerHTML = active.map((a, i) => `<div class="al ${a.kind}"><div class="al-txt"><b>${esc(a.title)}</b><p>${esc(a.text)}</p>${a.status ? `<p class="al-st">${esc(a.status)}</p>` : ""}</div><div class="al-btns">${a.action ? (keys ? `<button class="btn al-go" data-go="${i}">${esc(a.action.label)}</button>` : `<a class="btn al-go" href="#settings">Add Alpaca keys to use the button</a>`) : ""}<button class="btn small" data-x="${i}">Dismiss</button></div></div>`).join("");
+  }
+  async function trialBuy(a, p) {
+    if (!confirm(`PAPER order on Alpaca:\n\nBUY 1 ${p.symbol}, limit ${p.entry}\nStop-loss ${p.stop} · Take-profit ${p.target}\nMax loss ≈ $${(p.entry - p.stop).toFixed(2)}\n\nSend it?`)) return;
+    a.status = "Sending…"; renderAlerts();
+    try {
+      const o = await alpaca("/v2/orders", { method: "POST", body: JSON.stringify({ symbol: p.symbol, qty: "1", side: "buy", type: "limit", limit_price: String(p.entry), time_in_force: "day", order_class: "bracket", take_profit: { limit_price: String(p.target) }, stop_loss: { stop_price: String(p.stop) } }) });
+      a.status = `Sent ✓ (${o.status}). The stop and target are attached, so it sells by itself if either is hit. Tell your trading session.`; a.action = null;
+      log(`Alpaca paper: BUY 1 ${p.symbol} bracket from trial alert (${o.status})`); refreshAlpaca();
+    } catch (e) { a.status = `Order failed: ${e.message}`; }
+    renderAlerts();
+  }
+  async function trialSell(a, sym) {
+    if (!confirm(`PAPER on Alpaca:\n\nCancel ${sym}'s open stop/target orders and SELL all ${sym} at market now?`)) return;
+    a.status = "Selling…"; renderAlerts();
+    try {
+      const open = await alpaca(`/v2/orders?status=open&symbols=${sym}`);
+      await Promise.all(open.map((o) => alpaca(`/v2/orders/${o.id}`, { method: "DELETE" }).catch(() => {})));
+      await new Promise((r) => setTimeout(r, 800));
+      const o = await alpaca(`/v2/positions/${sym}`, { method: "DELETE" });
+      a.status = `Sold ✓ (${o.status || "sent"}). You're flat in ${sym}.`; a.action = null;
+      log(`Alpaca paper: closed ${sym} at 14:30 ET from trial alert`); refreshAlpaca();
+    } catch (e) { a.status = /position does not exist|404/i.test(e.message) ? `No ${sym} position on Alpaca, so nothing to sell.` : `Sell failed: ${e.message}`; a.action = null; }
+    renderAlerts();
+  }
+  function checkAlerts(s, rd, t, now) {
+    if (!now.open || !rd || !isFinite(rd.hi)) return;
+    const d = now.day;
+    if (now.mins >= T_OR_END && now.mins < T_ENTRY_TO) fire({ id: `${d}-locked`, kind: "info", title: "Ranges locked: buy window opens 10:35 ET", text: "Each trial stock now has its BUY price on the Trial tab. Keep this screen open; it will beep when to buy." });
+    if (!rd.entry) return;
+    const tm = `${etClock(rd.trigMins)} ET`, p = { symbol: s, entry: +rd.entry.toFixed(2), stop: +rd.stop.toFixed(2), target: +rd.target.toFixed(2) };
+    if (rd.wide) return fire({ id: `${d}-${s}-skip`, kind: "skip", title: `SKIP ${s}: don't buy`, text: `It broke out at ${tm}, but the stop would be $${rd.risk.toFixed(2)} away, over your $0.50 max loss.` });
+    if (!rd.outcome && now.mins < T_FLAT) {
+      const late = Math.max(0, now.mins - rd.trigMins), nowPx = t.price ? ` Price now ${px(t.price)}.` : "";
+      const a = { id: `${d}-${s}-buy`, kind: "buy", title: `BUY NOW: ${s}, 1 share`, text: `5-min bar closed at ${px(p.entry)}, above the range high ${px(rd.hi)} (${tm}${late > 5 ? `, ${late} min ago` : ""}).${nowPx} Buy 1 share with a limit of ${px(p.entry)}, stop ${px(p.stop)}, target ${px(p.target)}. Max loss $${rd.risk.toFixed(2)}.` };
+      a.action = { label: `Buy 1 ${s} now (paper)`, fn: () => trialBuy(a, p) };
+      fire(a);
+    }
+    if (rd.outcome === "target") fire({ id: `${d}-${s}-tp`, kind: "good", title: `TARGET HIT: ${s} (+$${(2 * rd.risk).toFixed(2)})`, text: "If you bought, the take-profit order sold it for you. Nothing to do. No re-entry today." });
+    if (rd.outcome === "stop") fire({ id: `${d}-${s}-sl`, kind: "bad", title: `STOPPED OUT: ${s} (−$${rd.risk.toFixed(2)})`, text: "If you bought, the stop sold it for you. Nothing to do. No re-entry today." });
+    if (rd.outcome === "flat" || (!rd.outcome && now.mins >= T_FLAT)) {
+      const a = { id: `${d}-${s}-flat`, kind: "sell", title: `SELL NOW: ${s}, it's 14:30 ET`, text: `Time to be flat. If you still hold ${s}, sell it now, win or lose.` };
+      a.action = { label: `Sell my ${s} now (paper)`, fn: () => trialSell(a, s) };
+      fire(a);
+    }
+  }
+  async function toggleAlerts() {
+    alertsOn = !alertsOn;
+    if (alertsOn) {
+      beep(1);
+      try { if (window.Notification && Notification.permission === "default") await Notification.requestPermission(); } catch (e) { /* ignore */ }
+      try { wake = await navigator.wakeLock?.request("screen"); } catch (e) { wake = null; }
+    } else { try { await wake?.release(); } catch (e) { /* ignore */ } wake = null; }
+    const b = $("btnAlerts"); b.textContent = alertsOn ? "🔔 Alerts ON" : "🔕 Turn on alerts"; b.classList.toggle("on", alertsOn);
+    $("alertNote").textContent = alertsOn ? `Beeps${navigator.vibrate ? ", vibrates" : ""}${window.Notification?.permission === "granted" ? " and notifies" : ""} on BUY / SELL.${wake ? " Screen kept awake." : " Keep the screen on and this app open."}` : "Alerts are off. Tap the button each time you open the app (phones need a tap before they allow sound).";
+  }
+  document.addEventListener("visibilitychange", async () => { if (alertsOn && !document.hidden) { try { wake = await navigator.wakeLock?.request("screen"); } catch (e) { /* ignore */ } } });
+  function runTrialAlerts() {
+    const n = etInfo(new Date()), now = { ...n, open: n.wk && n.mins >= 570 && n.mins < 960 };
+    for (const [s, , win] of TRIAL) if (win != null && trial[s]) checkAlerts(s, trialRead(s, now), trial[s], now);
+  }
+
   // [from ET mins, to ET mins, title, what to do, colour]
   const TRIAL_PHASES = [
     [570, 630, "Build the range", "Don't buy yet. The first hour sets today's high and low.", "off"],
@@ -588,7 +683,7 @@
     if (!rd || !isFinite(rd.hi) || !t.bars?.some((b) => b.mins >= T_OR_END)) return `<div class="tc-plan muted">Buy and sell prices appear when the range locks at 10:30 ET.</div>`;
     if (rd.entry) {
       const risk = rd.entry - rd.stop;
-      return `<div class="tc-plan"><span class="k buy">BOUGHT</span> at <b>${px(rd.entry)}</b> (rule price)<br><span class="k sell">SELL</span> at <b>${px(rd.target)}</b> for profit (+$${(2 * risk).toFixed(2)}), or <b>${px(rd.stop)}</b> stop (−$${risk.toFixed(2)}), or at 14:30 ET, whichever comes first.</div>`;
+      return `<div class="tc-plan"><span class="k buy">BUY</span> signal at <b>${px(rd.entry)}</b> (limit order at this price)<br><span class="k sell">SELL</span> at <b>${px(rd.target)}</b> for profit (+$${(2 * risk).toFixed(2)}), or <b>${px(rd.stop)}</b> stop (−$${risk.toFixed(2)}), or at 14:30 ET, whichever comes first.</div>`;
     }
     const risk = rd.hi - rd.mid, tgt = rd.hi + 2 * risk, wide = risk > MAX_LOSS;
     return `<div class="tc-plan"><span class="k buy">BUY</span> if a 5-min bar closes above <b>${px(rd.hi)}</b>, 10:35–13:30 ET<br><span class="k sell">SELL</span> ≈ <b>${px(tgt)}</b> profit (+$${(2 * risk).toFixed(2)}) · <b>${px(rd.mid)}</b> stop (−$${risk.toFixed(2)}) · or at 14:30 ET${wide ? `<br><span class="k skip">SKIP</span> the stop is $${risk.toFixed(2)} away, over the $0.50 max loss.` : ""}</div>`;
@@ -1001,6 +1096,7 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
     renderMarkets();
     renderBoard();
     renderMovers();
+    runTrialAlerts();
     renderTrial();
     renderBrain();
     gradeSignals();
@@ -1287,7 +1383,13 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
   loadSignals();
   loadFng();
   loadBoard(); loadFx(); loadTrial();
-  setInterval(loadTrial, 60000);
+  setInterval(loadTrial, 30000);
+  $("btnAlerts").addEventListener("click", toggleAlerts);
+  $("alertBar").addEventListener("click", (e) => {
+    const go = e.target.closest("[data-go]"), x = e.target.closest("[data-x]");
+    if (go) active[+go.dataset.go]?.action?.fn();
+    if (x) { active.splice(+x.dataset.x, 1); renderAlerts(); }
+  });
   setInterval(loadBoard, 60000);
   setInterval(loadFx, 60 * 60000);
   $("sigRings").addEventListener("click", (e) => { const b = e.target.closest("[data-sym]"); if (b) { selected = b.dataset.sym; queueRender(); $("chart").scrollIntoView({ behavior: "smooth", block: "center" }); } });

@@ -1,6 +1,6 @@
 // Offline shell for Autopilot. Network first, so you always get the latest version when online.
 // Market data and Alpaca calls are never cached (they're cross-origin and skipped below).
-const CACHE = "autopilot-v10";
+const CACHE = "autopilot-v11";
 const ASSETS = ["./", "./index.html", "./style.css", "./script.js", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -33,4 +33,14 @@ self.addEventListener("fetch", (e) => {
       })
       .catch(() => caches.match(req, { ignoreSearch: true }).then((hit) => hit || (req.mode === "navigate" ? caches.match("./index.html") : Response.error())))
   );
+});
+
+// Tapping a trial alert notification opens the app on the Trial tab.
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    const c = list[0];
+    if (c) { c.focus(); return c.navigate ? c.navigate(new URL("./#trial", self.location).href).catch(() => {}) : null; }
+    return self.clients.openWindow("./#trial");
+  }));
 });

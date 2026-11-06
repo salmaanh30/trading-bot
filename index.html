@@ -26,6 +26,7 @@
       <div class="pill" id="feedStatus"><span class="dot"></span><span>Connecting…</span></div>
     </div>
   </header>
+  <div class="alertbar" id="alertBar" aria-live="assertive"></div>
 
   <nav class="nav" aria-label="Main">
     <a href="#home" data-view="home"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Home</span></a>
@@ -115,6 +116,7 @@
           <span class="pill" id="trialClock"><span class="dot"></span><span>–</span></span>
         </div>
         <p class="muted small rule">Range = 9:30–10:30 ET high/low. Entry = a 5-min bar closing above the range high between 10:35 and 13:30 ET. Stop = range midpoint, target = 2R, flat by 14:30 ET (21:30 SAST). 1 share, max loss $0.50. Orders only go through the trading session, with your yes.</p>
+        <div class="alert-ctl"><button class="btn primary" id="btnAlerts">&#128277; Turn on alerts</button><span class="muted small" id="alertNote">Alerts are off. Tap the button each time you open the app (phones need a tap before they allow sound).</span></div>
         <div class="tplan" id="trialPlan"></div>
         <h3 class="mv-h">Each stock: exact buy and sell prices</h3>
         <div class="trial-grid" id="trialGrid"></div>
