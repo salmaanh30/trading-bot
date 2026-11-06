@@ -374,3 +374,20 @@ main { padding-bottom: calc(var(--nav-h) + 56px + env(safe-area-inset-bottom)); 
 .tc-sub { font-size: .72rem; color: var(--muted); }
 #trialClock { font-size: .72rem; }
 .nav { grid-template-columns: repeat(6, 1fr); }
+
+/* ---------- v8: trial game plan ---------- */
+.tp-now { padding: 12px 14px; border-radius: 16px; margin-bottom: 10px; font-size: .9rem; background: var(--panel); border-left: 4px solid var(--line-2); }
+.tp-now.good { border-left-color: var(--up); background: var(--up-bg); } .tp-now.watch { border-left-color: var(--warn); background: var(--warn-bg); } .tp-now.bad { border-left-color: var(--down); background: var(--down-bg); }
+.tp-steps { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 2px; }
+.tp-steps li { display: grid; grid-template-columns: 170px 1fr; gap: 12px; padding: 9px 10px; border-radius: 12px; position: relative; }
+.tp-steps li::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 3px; background: var(--line-2); }
+.tp-steps li.good::before { background: var(--up); } .tp-steps li.watch::before { background: var(--warn); } .tp-steps li.bad::before { background: var(--down); }
+.tp-steps li.now { background: var(--panel-2); outline: 1px solid var(--line-2); }
+.tp-steps li.now b::after { content: " NOW"; font: 700 .62rem var(--mono); color: var(--ember); letter-spacing: .1em; }
+.tp-t { font: .76rem var(--mono); color: var(--text-2); padding-left: 6px; }
+.tp-steps p { margin: 2px 0 0; font-size: .8rem; color: var(--text-2); }
+@media (max-width: 560px) { .tp-steps li { grid-template-columns: 1fr; gap: 2px; } }
+.tc-plan { font-size: .76rem; line-height: 1.7; color: var(--text-2); }
+.tc-plan b { color: var(--text); font-family: var(--mono); }
+.tc-plan .k { display: inline-block; min-width: 54px; font: 700 .62rem var(--mono); letter-spacing: .08em; padding: 1px 6px; border-radius: 6px; margin-right: 4px; text-align: center; }
+.k.buy { background: var(--up-bg); color: var(--up); } .k.sell { background: var(--down-bg); color: var(--down); } .k.skip { background: var(--warn-bg); color: var(--warn); }

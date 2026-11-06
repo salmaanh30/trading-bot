@@ -576,12 +576,38 @@
     if (now.mins > T_ENTRY_TO) return { ...r, lvl: "off", word: "No entry today (window closed 13:30 ET)" };
     return { ...r, lvl: "watch", word: `Waiting for a 5-min close above ${px(hi)}` };
   }
+  // [from ET mins, to ET mins, title, what to do, colour]
+  const TRIAL_PHASES = [
+    [570, 630, "Build the range", "Don't buy yet. The first hour sets today's high and low.", "off"],
+    [630, 635, "Range locked", "Today's high, low and midpoint are set. Each stock below now shows its buy and sell prices.", "watch"],
+    [635, 810, "Buy window", "Buy 1 share only after a 5-min bar CLOSES above the range high. A spike above that closes back under doesn't count. Skip it if the stop is more than $0.50 away.", "good"],
+    [810, 870, "No new buys", "Missed it? Let it go. Open trades keep their stop (midpoint) and target (2R).", "watch"],
+    [870, 960, "Sell what's left", "Flat by 14:30 ET: anything still open gets sold now, win or lose. Day done.", "bad"],
+  ];
+  function tradeLines(rd, t) {
+    if (!rd || !isFinite(rd.hi) || !t.bars?.some((b) => b.mins >= T_OR_END)) return `<div class="tc-plan muted">Buy and sell prices appear when the range locks at 10:30 ET.</div>`;
+    if (rd.entry) {
+      const risk = rd.entry - rd.stop;
+      return `<div class="tc-plan"><span class="k buy">BOUGHT</span> at <b>${px(rd.entry)}</b> (rule price)<br><span class="k sell">SELL</span> at <b>${px(rd.target)}</b> for profit (+$${(2 * risk).toFixed(2)}), or <b>${px(rd.stop)}</b> stop (−$${risk.toFixed(2)}), or at 14:30 ET, whichever comes first.</div>`;
+    }
+    const risk = rd.hi - rd.mid, tgt = rd.hi + 2 * risk, wide = risk > MAX_LOSS;
+    return `<div class="tc-plan"><span class="k buy">BUY</span> if a 5-min bar closes above <b>${px(rd.hi)}</b>, 10:35–13:30 ET<br><span class="k sell">SELL</span> ≈ <b>${px(tgt)}</b> profit (+$${(2 * risk).toFixed(2)}) · <b>${px(rd.mid)}</b> stop (−$${risk.toFixed(2)}) · or at 14:30 ET${wide ? `<br><span class="k skip">SKIP</span> the stop is $${risk.toFixed(2)} away, over the $0.50 max loss.` : ""}</div>`;
+  }
   function renderTrial() {
     if ($("view-trial").hidden) return;
     const n = etInfo(new Date()), open = n.wk && n.mins >= 570 && n.mins < 960, now = { ...n, open };
     const sast = new Date().toLocaleTimeString([], { timeZone: "Africa/Johannesburg", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
     const ck = $("trialClock"); ck.className = `pill ${open ? "live" : "off"}`;
     ck.lastElementChild.textContent = `${open ? "US market open" : "US market closed"} · ${etClock(n.mins)} ET · ${sast} SAST`;
+    // game plan timeline: ET and SAST side by side (the gap is 6 or 7 hours depending on US daylight saving)
+    const sm = sast.split(":"), off = ((+sm[0] * 60 + +sm[1] - n.mins) % 1440 + 1440) % 1440;
+    const at = (m) => `<b>${etClock(m)}</b> ET · ${etClock((m + off) % 1440)} SAST`;
+    const cur = open ? TRIAL_PHASES.findIndex(([a, b]) => n.mins >= a && n.mins < b) : -1;
+    const ss = sessionState("America/New_York", 9, 30, 16, 0);
+    const head = !open
+      ? `<div class="tp-now off"><b>Market closed.</b> Opens ${at(570)}, in ${dur(ss.mins)}. Nothing to buy or sell until then. Weekends and US holidays stay closed.</div>`
+      : `<div class="tp-now ${TRIAL_PHASES[cur][4]}"><b>Now: ${TRIAL_PHASES[cur][2]}.</b> ${TRIAL_PHASES[cur][3]} Next step in ${dur(TRIAL_PHASES[cur][1] - n.mins)}.</div>`;
+    setHTML($("trialPlan"), head + `<ol class="tp-steps">${TRIAL_PHASES.map(([a, , title, txt, lvl], i) => `<li class="${i === cur ? "now " : ""}${lvl}"><div class="tp-t">${at(a)}</div><div><b>${title}</b><p>${txt}</p></div></li>`).join("")}</ol>`);
     if (trialErr === "keys") { setHTML($("trialGrid"), `<p class="empty">Add your Alpaca <b>paper</b> keys in Settings to watch NOK, HLN, VFC, BB, AAL, PR and SPY live (free).</p>`); return; }
     setHTML($("trialGrid"), TRIAL.map(([s, name, win, avgR]) => {
       const t = trial[s] || {}, bench = win == null, rd = bench ? null : trialRead(s, now);
@@ -593,7 +619,8 @@
         <div class="tc-body">
           <div class="tc-top"><b>${esc(name)}</b><span class="num">${t.price ? px(t.price) : "–"} <i class="${cls(t.chg)}">${t.chg == null ? "" : arrow(t.chg) + pct(t.chg)}</i></span></div>
           ${status}
-          ${rd && isFinite(rd.hi) ? `<div class="tc-sub num">Range ${px(rd.lo)}–${px(rd.hi)} · mid ${px(rd.mid)}${rd.entry ? ` · in ${px(rd.entry)} · stop ${px(rd.stop)} · target ${px(rd.target)}` : ""}</div>` : ""}
+          ${rd && isFinite(rd.hi) ? `<div class="tc-sub num">Range ${px(rd.lo)}–${px(rd.hi)} · mid ${px(rd.mid)}</div>` : ""}
+          ${bench ? "" : tradeLines(rd, t)}
           ${bench ? `<div class="tc-sub">Compare: are the trial stocks beating the market today?</div>` : `<div class="tc-sub">Backtest: ${win}% wins, avg +${avgR.toFixed(2)}R · not proven</div>`}
         </div></div>`;
     }).join("") + (trialErr === "fetch" ? `<p class="muted small">Couldn't reach Alpaca data just now; retrying every minute.</p>` : ""));
