@@ -373,3 +373,4 @@ main { padding-bottom: calc(var(--nav-h) + 56px + env(safe-area-inset-bottom)); 
 .tc-top b { font-size: .92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .tc-top i { font-style: normal; font-size: .78rem; }
 .tc-sub { font-size: .72rem; color: var(--muted); }
 #trialClock { font-size: .72rem; }
+.nav { grid-template-columns: repeat(6, 1fr); }

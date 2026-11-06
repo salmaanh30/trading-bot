@@ -577,7 +577,7 @@
     return { ...r, lvl: "watch", word: `Waiting for a 5-min close above ${px(hi)}` };
   }
   function renderTrial() {
-    if ($("view-home").hidden) return;
+    if ($("view-trial").hidden) return;
     const n = etInfo(new Date()), open = n.wk && n.mins >= 570 && n.mins < 960, now = { ...n, open };
     const sast = new Date().toLocaleTimeString([], { timeZone: "Africa/Johannesburg", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
     const ck = $("trialClock"); ck.className = `pill ${open ? "live" : "off"}`;
@@ -1193,7 +1193,7 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
   // ---------- navigation ----------
   function route() {
     const v = (location.hash || "#home").slice(1);
-    const view = ["home", "markets", "bot", "coach", "settings"].includes(v) ? v : "home";
+    const view = ["home", "trial", "markets", "bot", "coach", "settings"].includes(v) ? v : "home";
     document.querySelectorAll(".view").forEach((el) => (el.hidden = el.dataset.view !== view));
     document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("on", a.dataset.view === view));
     window.scrollTo(0, 0);
