@@ -410,3 +410,4 @@ main { padding-bottom: calc(var(--nav-h) + 56px + env(safe-area-inset-bottom)); 
 .alert-ctl { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; }
 #btnAlerts.on { background: var(--up); color: #07080d; }
 @media (max-width: 560px) { .al-btns { width: 100%; } .al-go { flex: 1; text-align: center; } }
+.ver { font: 600 .62rem var(--mono); color: var(--muted); border: 1px solid var(--line-2); border-radius: 99px; padding: 1px 7px; }

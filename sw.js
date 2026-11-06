@@ -1,10 +1,10 @@
 // Offline shell for Autopilot. Network first, so you always get the latest version when online.
 // Market data and Alpaca calls are never cached (they're cross-origin and skipped below).
-const CACHE = "autopilot-v11";
+const CACHE = "autopilot-v12";
 const ASSETS = ["./", "./index.html", "./style.css", "./script.js", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS.map((u) => new Request(u, { cache: "reload" })))));
   self.skipWaiting();
 });
 
@@ -22,8 +22,10 @@ self.addEventListener("fetch", (e) => {
   const isFont = /(^|\.)fonts\.(googleapis|gstatic)\.com$/.test(url.hostname);
   if (!inScope && !isFont) return;
 
+  // Always revalidate with the server (GitHub Pages says max-age=600, which kept old versions on phones).
+  const fresh = isFont ? fetch(req) : req.mode === "navigate" ? fetch(req.url, { cache: "no-cache", credentials: "same-origin" }) : fetch(req, { cache: "no-cache" });
   e.respondWith(
-    fetch(req)
+    fresh
       .then((res) => {
         if (res.ok || res.type === "opaque") {
           const copy = res.clone();
