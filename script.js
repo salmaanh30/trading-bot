@@ -408,7 +408,7 @@
   // ---------- bot brain: rings, AI signal per market, thought feed, movers ----------
   const setHTML = (el, h) => { if (el && el._h !== h) { el._h = h; el.innerHTML = h; } };
   const shortName = (s) => (s === "PAXG-USD" ? "Gold" : s.replace("-USD", ""));
-  const sigAction = (m) => (m.score >= 30 && m.trend === "up" ? { word: "BUY ZONE", lvl: "good" } : m.score <= -30 ? { word: "AVOID", lvl: "bad" } : { word: "WAIT", lvl: "watch" });
+  const sigAction = (m) => (m.score >= 30 && m.trend === "up" ? { word: "UPTREND", lvl: "good" } : m.score <= -30 ? { word: "DOWNTREND", lvl: "bad" } : { word: "WAIT", lvl: "watch" });
   const RING_COL = { good: "var(--up)", bad: "var(--down)", watch: "var(--warn)" };
   function brainState() {
     const ms = symbols().map(metrics).filter(Boolean);
@@ -427,9 +427,9 @@
       const a = sigAction(m), key = a.word + m.trend;
       if (lastThought[m.sym] === key) continue;
       lastThought[m.sym] = key;
-      if (a.word === "BUY ZONE") logSignal(m.sym, "ring", { entry: m.price, stop: m.price * (1 - (1.5 * m.atrPct) / 100), target: m.price * (1 + (3 * m.atrPct) / 100) });
+      if (a.word === "UPTREND") logSignal(m.sym, "ring", { entry: m.price, stop: m.price * (1 - (1.5 * m.atrPct) / 100), target: m.price * (1 + (3 * m.atrPct) / 100) });
       const why = `${m.trend === "up" ? "trend up" : m.trend === "down" ? "trend down" : "choppy"}, RSI ${m.rsi.toFixed(0)}, volume ${m.volRatio.toFixed(1)}× normal`;
-      thoughts.unshift({ t, lvl: a.lvl, txt: `${shortName(m.sym)}: ${why} → ${a.word === "BUY ZONE" ? "looking for an entry" : a.word === "AVOID" ? "staying out" : "waiting for a cleaner setup"}` });
+      thoughts.unshift({ t, lvl: a.lvl, txt: `${shortName(m.sym)}: ${why} → ${a.word === "UPTREND" ? "looking for an entry" : a.word === "DOWNTREND" ? "staying out" : "waiting for a cleaner setup"}` });
     }
     const rm = riskMood();
     if (rm && lastThought._mood !== rm.title) { lastThought._mood = rm.title; thoughts.unshift({ t, lvl: rm.lvl, txt: `Big picture: ${rm.title.toLowerCase()}. ${rm.text}` }); }
@@ -463,7 +463,7 @@
   }
 
   // ---------- signal scorecard: log every buy signal, grade it against what price did next ----------
-  const SRC_NAME = { strategy: "EMA cross (bot's buy rule)", ring: "BUY ZONE ring" };
+  const SRC_NAME = { strategy: "EMA cross (bot's buy rule)", ring: "Uptrend ring (crypto)" };
   const FEE_RT = 0.2; // % round trip, same as the bot
   function logSignal(sym, src, { entry, stop, target }) {
     if (!S.signals) S.signals = [];
@@ -519,6 +519,84 @@
       const [bl, bw] = badge[s.status], when = new Date(s.t).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
       return `<div class="r"><div><div class="t">${esc(coin(s.sym))} · ${esc(SRC_NAME[s.src])}</div><div class="s">${when} · in ${px(s.entry)} · stop ${px(s.stop)} · target ${px(s.target)}</div></div><div class="v"><span class="tag ${bl}">${bw}</span>${s.res != null ? ` <b class="num ${cls(s.res)}">${pct(s.res)}</b>` : ""}</div></div>`;
     }).join("") || `<p class="empty">No signals yet. They appear here automatically while the app is open.</p>`);
+  }
+
+  // ---------- the trial: 60-min opening-range breakout on the focus stocks (display only, no orders) ----------
+  const TRIAL = [
+    ["NOK", "Nokia", 65, 0.40], ["HLN", "Haleon", 61, 0.39], ["VFC", "VF Corp", 58, 0.37],
+    ["BB", "BlackBerry", 68, 0.36], ["AAL", "American Airlines", 58, 0.27], ["PR", "Permian Resources", 48, 0.23], ["SPY", "S&P 500 · benchmark", null, null],
+  ];
+  const T_OR_END = 630, T_ENTRY_FROM = 635, T_ENTRY_TO = 810, T_FLAT = 870, MAX_LOSS = 0.5; // minutes after midnight ET
+  let trial = {}, trialErr = "";
+  const etParts = (d) => Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(d).map((p) => [p.type, p.value]));
+  const etInfo = (d) => { const p = etParts(d); return { day: `${p.year}-${p.month}-${p.day}`, mins: +p.hour * 60 + +p.minute, wk: !["Sat", "Sun"].includes(p.weekday) }; };
+  const etClock = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  async function loadTrial() {
+    if (!S.settings.alpacaKey || !S.settings.alpacaSecret) { trialErr = "keys"; queueRender(); return; }
+    const syms = TRIAL.map((t) => t[0]).join(",");
+    try {
+      const start = new Date(Date.now() - 20 * 3600e3).toISOString();
+      const [snap, bars] = await Promise.all([
+        fetch(`${ALPACA_DATA}/v2/stocks/snapshots?feed=iex&symbols=${syms}`, { headers: alpacaHeaders() }).then((r) => r.json()),
+        fetch(`${ALPACA_DATA}/v2/stocks/bars?feed=iex&timeframe=5Min&limit=10000&start=${start}&symbols=${syms}`, { headers: alpacaHeaders() }).then((r) => r.json()),
+      ]);
+      const today = etInfo(new Date()).day;
+      trial = {};
+      for (const [s] of TRIAL) {
+        const x = snap?.[s], price = x?.latestTrade?.p, prev = x?.prevDailyBar?.c;
+        const bs = (bars?.bars?.[s] || []).map((b) => ({ ...etInfo(new Date(b.t)), h: b.h, l: b.l, c: b.c })).filter((b) => b.day === today && b.mins >= 570);
+        trial[s] = { price, chg: price && prev ? ((price - prev) / prev) * 100 : null, bars: bs };
+      }
+      trialErr = "";
+    } catch (e) { trialErr = "fetch"; }
+    queueRender();
+  }
+  function trialRead(s, now) {
+    const t = trial[s];
+    if (!t || !t.bars.length) return { lvl: "off", word: now.open ? "Waiting for first bar" : "Market closed" };
+    const orb = t.bars.filter((b) => b.mins < T_OR_END);
+    const hi = Math.max(...orb.map((b) => b.h)), lo = Math.min(...orb.map((b) => b.l)), mid = (hi + lo) / 2;
+    const r = { hi, lo, mid };
+    const trig = t.bars.find((b) => b.mins + 5 >= T_ENTRY_FROM && b.mins + 5 <= T_ENTRY_TO && b.c > hi);
+    if (trig) {
+      const entry = trig.c, risk = entry - mid, target = entry + 2 * risk;
+      Object.assign(r, { entry, stop: mid, target });
+      if (risk > MAX_LOSS) return { ...r, lvl: "watch", word: `Triggered ${etClock(trig.mins + 5)} ET but stop is $${risk.toFixed(2)} away (over $0.50), so skip` };
+      let out = null;
+      for (const b of t.bars) {
+        if (b.mins <= trig.mins) continue;
+        if (b.mins >= T_FLAT) { out = { lvl: "watch", word: `Flat at 14:30 ET: ${b.c >= entry ? "+" : "−"}$${Math.abs(b.c - entry).toFixed(2)}` }; break; }
+        if (b.l <= mid) { out = { lvl: "bad", word: `Stopped out (−$${risk.toFixed(2)})` }; break; }
+        if (b.h >= target) { out = { lvl: "good", word: `Target hit (+$${(2 * risk).toFixed(2)})` }; break; }
+      }
+      return { ...r, ...(out || { lvl: "good", word: `Rule triggered ${etClock(trig.mins + 5)} ET, in play` }) };
+    }
+    if (!now.open) return { ...r, lvl: "off", word: "Market closed" };
+    if (now.mins < T_OR_END) return { ...r, lvl: "off", word: "Building the range (until 10:30 ET)" };
+    if (now.mins > T_ENTRY_TO) return { ...r, lvl: "off", word: "No entry today (window closed 13:30 ET)" };
+    return { ...r, lvl: "watch", word: `Waiting for a 5-min close above ${px(hi)}` };
+  }
+  function renderTrial() {
+    if ($("view-home").hidden) return;
+    const n = etInfo(new Date()), open = n.wk && n.mins >= 570 && n.mins < 960, now = { ...n, open };
+    const sast = new Date().toLocaleTimeString([], { timeZone: "Africa/Johannesburg", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+    const ck = $("trialClock"); ck.className = `pill ${open ? "live" : "off"}`;
+    ck.lastElementChild.textContent = `${open ? "US market open" : "US market closed"} · ${etClock(n.mins)} ET · ${sast} SAST`;
+    if (trialErr === "keys") { setHTML($("trialGrid"), `<p class="empty">Add your Alpaca <b>paper</b> keys in Settings to watch NOK, HLN, VFC, BB, AAL, PR and SPY live (free).</p>`); return; }
+    setHTML($("trialGrid"), TRIAL.map(([s, name, win, avgR]) => {
+      const t = trial[s] || {}, bench = win == null, rd = bench ? null : trialRead(s, now);
+      const pos = rd && rd.hi > rd.lo && t.price ? Math.max(3, Math.min(100, ((t.price - rd.lo) / (rd.hi - rd.lo)) * 100)) : 3;
+      const col = !rd ? "var(--blue-2)" : rd.lvl === "good" ? "var(--up)" : rd.lvl === "bad" ? "var(--down)" : rd.lvl === "watch" ? "var(--warn)" : "rgba(255,255,255,.3)";
+      const status = bench ? `<span class="tag">${open ? "Benchmark" : "Market closed"}</span>` : `<span class="tag ${rd.lvl === "off" ? "" : rd.lvl}">${esc(rd.word)}</span>`;
+      return `<div class="tc${bench ? " bench" : ""}">
+        <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" class="rt"/><circle cx="32" cy="32" r="26" pathLength="100" stroke="${col}" stroke-dasharray="${bench ? 100 : pos.toFixed(0)} 100" class="rv" transform="rotate(-90 32 32)"/><text x="32" y="36" text-anchor="middle">${s}</text></svg>
+        <div class="tc-body">
+          <div class="tc-top"><b>${esc(name)}</b><span class="num">${t.price ? px(t.price) : "–"} <i class="${cls(t.chg)}">${t.chg == null ? "" : arrow(t.chg) + pct(t.chg)}</i></span></div>
+          ${status}
+          ${rd && isFinite(rd.hi) ? `<div class="tc-sub num">Range ${px(rd.lo)}–${px(rd.hi)} · mid ${px(rd.mid)}${rd.entry ? ` · in ${px(rd.entry)} · stop ${px(rd.stop)} · target ${px(rd.target)}` : ""}</div>` : ""}
+          ${bench ? `<div class="tc-sub">Compare: are the trial stocks beating the market today?</div>` : `<div class="tc-sub">Backtest: ${win}% wins, avg +${avgR.toFixed(2)}R · not proven</div>`}
+        </div></div>`;
+    }).join("") + (trialErr === "fetch" ? `<p class="muted small">Couldn't reach Alpaca data just now; retrying every minute.</p>` : ""));
   }
 
   // ---------- market hours ----------
@@ -705,6 +783,7 @@
       us_stock_market: n.open ? `open, closes in ${dur(n.mins)}` : `closed, opens in ${dur(n.mins)}`,
       fear_greed: fng ? fng.map((f) => f.value) : null,
       all_markets_today: Object.fromEntries(Object.entries(board).map(([k, b]) => [k, { price: +b.price.toFixed(4), change_pct: +b.chg.toFixed(2) }])),
+      trial_stocks_today: Object.fromEntries(Object.entries(trial).map(([s, t]) => [s, { price: t.price, change_pct: t.chg && +t.chg.toFixed(2) }])),
       big_picture: riskMood()?.title || "unknown",
       signal_scorecard: { ...sgStats(S.signals || []), verdict: sgVerdict(sgStats(S.signals || []))[1] },
       markets: symbols().map(metrics).filter(Boolean).map((m) => ({ symbol: m.sym, price: +m.price.toFixed(4), change_24h_pct: m.chg24 && +m.chg24.toFixed(2), rsi: +m.rsi.toFixed(1), atr_pct: +m.atrPct.toFixed(3), trend: m.trend, score: m.score, volume_vs_normal: +m.volRatio.toFixed(2), ema_crosses_last_60: m.crosses })),
@@ -895,6 +974,7 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
     renderMarkets();
     renderBoard();
     renderMovers();
+    renderTrial();
     renderBrain();
     gradeSignals();
     renderScore();
@@ -1179,7 +1259,8 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
   boot();
   loadSignals();
   loadFng();
-  loadBoard(); loadFx();
+  loadBoard(); loadFx(); loadTrial();
+  setInterval(loadTrial, 60000);
   setInterval(loadBoard, 60000);
   setInterval(loadFx, 60 * 60000);
   $("sigRings").addEventListener("click", (e) => { const b = e.target.closest("[data-sym]"); if (b) { selected = b.dataset.sym; queueRender(); $("chart").scrollIntoView({ behavior: "smooth", block: "center" }); } });

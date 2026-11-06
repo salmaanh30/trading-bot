@@ -361,3 +361,15 @@ main { padding-bottom: calc(var(--nav-h) + 56px + env(safe-area-inset-bottom)); 
 .rings-wrap.sm { width: 170px; margin: 0 auto; }
 .sg-top .kpis { margin-top: 0; grid-template-columns: 1fr 1fr; }
 @media (max-width: 600px) { .sg-top { grid-template-columns: 1fr; } }
+/* ---------- v7: trial watchlist ---------- */
+.trial .rule { margin: 0 0 12px; padding: 10px 12px; border-radius: 14px; background: var(--panel); border: 1px dashed var(--line-2); }
+.trial-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.tc { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; padding: 12px; border-radius: 20px; background: var(--panel); border: 1px solid var(--line); }
+.tc.bench { border-style: dashed; }
+.tc svg { width: 64px; height: 64px; } .tc .rt, .tc .rv { stroke-width: 7; }
+.tc text { fill: var(--text); font: 700 11px var(--mono); }
+.tc-body { display: grid; gap: 5px; min-width: 0; justify-items: start; }
+.tc-top { display: flex; justify-content: space-between; gap: 8px; width: 100%; }
+.tc-top b { font-size: .92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .tc-top i { font-style: normal; font-size: .78rem; }
+.tc-sub { font-size: .72rem; color: var(--muted); }
+#trialClock { font-size: .72rem; }

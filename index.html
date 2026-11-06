@@ -39,9 +39,29 @@
     <!-- ================= HOME ================= -->
     <section class="view" id="view-home" data-view="home">
       <div class="ticker" id="ticker" aria-label="All markets ticker"></div>
+
+      <div class="card glow">
+        <div class="card-head">
+          <div><p class="eyebrow">The trial · from Claude session salmaan-first-trail-trade-test</p><h2>Today's trial plans</h2></div>
+          <button class="btn small" id="btnSignals">Refresh</button>
+        </div>
+        <p class="muted small" id="sigMeta">Loading signals.json…</p>
+        <div class="plans" id="plans"></div>
+      </div>
+
+      <div class="card trial">
+        <div class="card-head">
+          <div><p class="eyebrow">Trial watchlist · US stocks $5–$25</p><h2>60-min opening-range breakout</h2></div>
+          <span class="pill" id="trialClock"><span class="dot"></span><span>–</span></span>
+        </div>
+        <p class="muted small rule">Range = 9:30–10:30 ET high/low. Entry = a 5-min bar closing above the range high between 10:35 and 13:30 ET. Stop = range midpoint, target = 2R, flat by 14:30 ET (21:30 SAST). 1 share, max loss $0.50. Orders only go through the trading session, with your yes.</p>
+        <div class="trial-grid" id="trialGrid"></div>
+        <p class="muted small">Ring = where the price sits inside today's opening range (full ring = at the range high). Backtest: about 60 days of 5-min bars. Across 60 stocks this rule roughly broke even, so these numbers are <b>not proof</b>. Prices: Alpaca free IEX feed (some 5-min bars can be missing). US holidays aren't counted.</p>
+      </div>
+
       <div class="portfolio">
         <div>
-          <p class="eyebrow">Paper portfolio</p>
+          <p class="eyebrow">Crypto &amp; gold bot · paper · not part of the trial</p>
           <div class="big" id="statEquity">$28.00</div>
           <div class="chg-line"><span id="statTotal">$0.00</span><span class="muted"> all time</span> · <span id="statToday">$0.00</span><span class="muted"> today</span></div>
         </div>
@@ -57,7 +77,7 @@
 
       <div class="brain">
         <div class="card brain-core">
-          <p class="eyebrow">Bot brain · live</p>
+          <p class="eyebrow">Other markets · crypto &amp; gold bot brain</p>
           <div class="rings-wrap"><svg id="brainRings" viewBox="0 0 200 200" aria-label="Trend, momentum and risk rings"></svg><div class="brain-mid"><b id="brainPct">–</b><span id="brainWord">thinking</span></div></div>
           <div class="ring-key" id="brainKey"></div>
         </div>
@@ -68,7 +88,7 @@
       </div>
 
       <div class="card">
-        <div class="card-head"><div><p class="eyebrow">AI signal per market · tap to chart</p><h2>Where to look</h2></div></div>
+        <div class="card-head"><div><p class="eyebrow">Other markets, not in the trial · tap to chart</p><h2>Crypto &amp; gold trend read</h2></div></div>
         <div class="sigrings" id="sigRings"></div>
       </div>
 
@@ -210,14 +230,6 @@
         <form class="ask" id="askForm"><input id="askInput" placeholder="Ask anything about the market or your trades…" autocomplete="off"><button class="btn primary" type="submit">Send</button></form>
       </div>
 
-      <div class="card">
-        <div class="card-head">
-          <div><p class="eyebrow">From Claude · session salmaan-first-trail-trade-test</p><h2>Claude's trade plans</h2></div>
-          <button class="btn small" id="btnSignals">Refresh</button>
-        </div>
-        <p class="muted small" id="sigMeta">Loading signals.json…</p>
-        <div class="plans" id="plans"></div>
-      </div>
 
       <div class="card">
         <div class="card-head"><div><p class="eyebrow">Broker · paper only</p><h2>Alpaca paper account</h2></div></div>
