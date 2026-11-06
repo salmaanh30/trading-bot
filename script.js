@@ -549,7 +549,7 @@
       for (const [s] of TRIAL) {
         const x = snap?.[s], price = x?.latestTrade?.p, prev = x?.prevDailyBar?.c;
         const bs = (bars?.bars?.[s] || []).map((b) => ({ ...etInfo(new Date(b.t)), h: b.h, l: b.l, c: b.c })).filter((b) => b.day === today && b.mins >= 570);
-        trial[s] = { price, chg: price && prev ? ((price - prev) / prev) * 100 : null, bars: bs };
+        trial[s] = { price, chg: price && prev ? ((price - prev) / prev) * 100 : null, bars: bs, day: x?.dailyBar };
       }
       trialErr = "";
     } catch (e) { trialErr = "fetch"; }
@@ -675,6 +675,58 @@
     for (const [s, , win] of TRIAL) if (win != null && trial[s]) checkAlerts(s, trialRead(s, now), trial[s], now);
   }
 
+  // ---------- trial read: what's good and bad for the rule right now ----------
+  function trialInsights(now) {
+    const out = [], add = (lvl, title, text) => out.push({ lvl, title, text });
+    const spy = trial.SPY, lockedNow = now.open && now.mins >= T_OR_END;
+    if (trialErr === "keys") add("watch", "No live stock data yet", "Add your Alpaca paper keys in Settings to get the full read on the trial stocks.");
+    if (!now.open) add("watch", "US market closed", "Opens 9:30 ET (16:30 SAST). Nothing to do until the range locks at 10:30 ET (17:30 SAST).");
+    else if (now.mins < T_OR_END) add("watch", "Range still building", "Don't buy before 10:30 ET (17:30 SAST). Just watch.");
+    else if (now.mins <= T_ENTRY_TO) add("good", "Buy window is open", "Until 13:30 ET (20:30 SAST). Only buy on a 5-min close above the range high.");
+    else if (now.mins < T_FLAT) add("watch", "No new buys", "The buy window closed at 13:30 ET. Let open trades run to their stop or target.");
+    else add("bad", "Sell time", "Everything should be sold by 14:30 ET (21:30 SAST).");
+    if (spy?.chg != null) {
+      const c = spy.chg, when = now.open ? "today" : "last session";
+      if (c <= -1.5) add("bad", `Market selling off (S&P ${pct(c)} ${when})`, "Upward breakouts fail more often when the whole market is falling. Be picky. \"No trade\" is a fine result.");
+      else if (c >= 1) add("good", `Market strong (S&P ${pct(c)} ${when})`, "Upward breakouts have the wind behind them.");
+      else add("watch", `Market calm (S&P ${pct(c)} ${when})`, "No strong push either way, so each stock has to do the work itself.");
+      if (now.open && spy.day?.o) {
+        const up = spy.price >= spy.day.o;
+        add(up ? "good" : "bad", `S&P is ${up ? "above" : "below"} today's open`, up ? "Buyers are in control so far today." : "Sellers are in control so far today, so breakouts are riskier.");
+      }
+    }
+    const stocks = TRIAL.filter((t) => t[2] != null && trial[t[0]]).map((t) => t[0]);
+    const drops = stocks.filter((s) => trial[s].chg <= -5);
+    if (drops.length) add("watch", `Big drops: ${drops.map((s) => `${s} ${pct(trial[s].chg)}`).join(", ")}`, "After a big fall a stock can bounce or keep sliding. Wait for a clean close above the range, never a spike.");
+    if (now.open && spy?.chg != null) {
+      const strong = stocks.filter((s) => trial[s].chg > spy.chg + 1);
+      if (strong.length) add("good", `Stronger than the market: ${strong.join(", ")}`, "Holding up better than the S&P today. Breakouts work best on strong stocks.");
+    }
+    const wide = [], ok = [];
+    for (const s of stocks) {
+      const rd = trialRead(s, now), t = trial[s];
+      const locked = isFinite(rd.hi) && t.bars.some((b) => b.mins >= T_OR_END);
+      const half = locked ? rd.hi - rd.mid : t.day ? (t.day.h - t.day.l) / 2 : null;
+      if (half != null) (half > MAX_LOSS ? wide : ok).push(`${s} $${half.toFixed(2)}`);
+      if (rd.entry && !rd.wide && !rd.outcome) add("good", `${s} triggered`, `The rule fired at ${etClock(rd.trigMins)} ET. Check the BUY banner.`);
+      if (rd.outcome === "stop") add("bad", `${s} stopped out`, "It broke out, then fell back to the stop. No re-entry today.");
+      if (rd.outcome === "target") add("good", `${s} hit its target`, "The breakout worked today.");
+    }
+    if (wide.length) add("bad", `Stop too wide: ${wide.join(", ")}`, lockedNow ? "Today's range is bigger than the $0.50 max loss, so these get skipped today." : "Rough guide from the last session's swings: bigger than the $0.50 max loss, so these will probably be skipped.");
+    if (ok.length) add("good", `Stop fits $0.50: ${ok.join(", ")}`, lockedNow ? "These can be traded if they break out." : "Rough guide from the last session's swings: these are the most likely to be tradeable.");
+    return out;
+  }
+  function renderTrialRead(now) {
+    const items = trialInsights(now);
+    const g = items.filter((x) => x.lvl === "good").length, b = items.filter((x) => x.lvl === "bad").length;
+    const lvl = b > g ? "bad" : g > b ? "good" : "watch";
+    const title = b > g ? "Tough conditions for the rule: be picky" : g > b ? "Decent conditions for the rule" : "Mixed: only take a clean signal";
+    $("tvIcon").className = "v-icon " + lvl; $("tvIcon").textContent = { good: "✓", bad: "!", watch: "~" }[lvl];
+    $("tvTitle").textContent = (now.open ? "" : "Market closed. ") + title;
+    const li = (x) => `<li class="${x.lvl}"><strong>${esc(x.title)}</strong><span>${esc(x.text)}</span></li>`;
+    for (const [l, id] of [["good", "tGood"], ["bad", "tBad"], ["watch", "tWatch"]]) setHTML($(id), items.filter((x) => x.lvl === l).map(li).join("") || `<li class="none">Nothing right now.</li>`);
+  }
+
   // [from ET mins, to ET mins, title, what to do, colour]
   const TRIAL_PHASES = [
     [570, 630, "Build the range", "Don't buy yet. The first hour sets today's high and low.", "off"],
@@ -698,6 +750,7 @@
     const sast = new Date().toLocaleTimeString([], { timeZone: "Africa/Johannesburg", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
     const ck = $("trialClock"); ck.className = `pill ${open ? "live" : "off"}`;
     ck.lastElementChild.textContent = `${open ? "US market open" : "US market closed"} · ${etClock(n.mins)} ET · ${sast} SAST`;
+    renderTrialRead(now);
     // game plan timeline: ET and SAST side by side (the gap is 6 or 7 hours depending on US daylight saving)
     const sm = sast.split(":"), off = ((+sm[0] * 60 + +sm[1] - n.mins) % 1440 + 1440) % 1440;
     const at = (m) => `<b>${etClock(m)}</b> ET · ${etClock((m + off) % 1440)} SAST`;
