@@ -20,7 +20,7 @@
   <div class="aurora" aria-hidden="true"><span></span><span></span></div>
 
   <header class="top">
-    <div class="brand"><span class="logo" aria-hidden="true">A</span><span>Autopilot</span><span class="ver">v13</span></div>
+    <div class="brand"><span class="logo" aria-hidden="true">A</span><span>Autopilot</span><span class="ver">v14</span></div>
     <div class="top-right">
       <div class="pill" id="nyse" title="US stock market (New York). Holidays not counted."><span class="dot"></span><span>NYSE</span></div>
       <div class="pill" id="feedStatus"><span class="dot"></span><span>Connecting…</span></div>
@@ -101,6 +101,22 @@
 
     <!-- ================= TRIAL ================= -->
     <section class="view" id="view-trial" data-view="trial" hidden>
+      <div class="card trial">
+        <div class="card-head">
+          <div><p class="eyebrow">Trial focus list · US stocks $5–$25 · 1 share, max loss $0.50</p><h2>What we're trading</h2></div>
+          <span class="pill" id="trialClock"><span class="dot"></span><span>–</span></span>
+        </div>
+        <div class="alert-ctl"><button class="btn primary" id="btnAlerts">&#128277; Turn on alerts</button><span class="muted small" id="alertNote">Alerts are off. Tap the button each time you open the app (phones need a tap before they allow sound).</span></div>
+        <div class="trial-grid" id="trialGrid"></div>
+        <p class="muted small">Ring = where the price sits inside today's opening range (full ring = at the range high). Backtest: about 60 days of 5-min bars. Across 60 stocks this rule roughly broke even, so these numbers are <b>not proof</b>. Prices: Alpaca free IEX feed (some 5-min bars can be missing). US holidays aren't counted.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><p class="eyebrow">The rule · 60-min opening-range breakout</p><h2>When to buy and sell today</h2></div></div>
+        <p class="muted small rule">Range = 9:30–10:30 ET high/low. Entry = a 5-min bar closing above the range high between 10:35 and 13:30 ET. Stop = range midpoint, target = 2R, flat by 14:30 ET (21:30 SAST). 1 share, max loss $0.50. Orders only go through the trading session, with your yes.</p>
+        <div class="tplan" id="trialPlan"></div>
+      </div>
+
       <div class="card glow">
         <div class="card-head">
           <div><p class="eyebrow">The trial · from Claude session salmaan-first-trail-trade-test</p><h2>Today's trial plans</h2></div>
@@ -108,19 +124,6 @@
         </div>
         <p class="muted small" id="sigMeta">Loading signals.json…</p>
         <div class="plans" id="plans"></div>
-      </div>
-
-      <div class="card trial">
-        <div class="card-head">
-          <div><p class="eyebrow">Trial watchlist · US stocks $5–$25</p><h2>60-min opening-range breakout</h2></div>
-          <span class="pill" id="trialClock"><span class="dot"></span><span>–</span></span>
-        </div>
-        <p class="muted small rule">Range = 9:30–10:30 ET high/low. Entry = a 5-min bar closing above the range high between 10:35 and 13:30 ET. Stop = range midpoint, target = 2R, flat by 14:30 ET (21:30 SAST). 1 share, max loss $0.50. Orders only go through the trading session, with your yes.</p>
-        <div class="alert-ctl"><button class="btn primary" id="btnAlerts">&#128277; Turn on alerts</button><span class="muted small" id="alertNote">Alerts are off. Tap the button each time you open the app (phones need a tap before they allow sound).</span></div>
-        <div class="tplan" id="trialPlan"></div>
-        <h3 class="mv-h">Each stock: exact buy and sell prices</h3>
-        <div class="trial-grid" id="trialGrid"></div>
-        <p class="muted small">Ring = where the price sits inside today's opening range (full ring = at the range high). Backtest: about 60 days of 5-min bars. Across 60 stocks this rule roughly broke even, so these numbers are <b>not proof</b>. Prices: Alpaca free IEX feed (some 5-min bars can be missing). US holidays aren't counted.</p>
       </div>
 
     </section>
