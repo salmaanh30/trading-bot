@@ -411,3 +411,7 @@ main { padding-bottom: calc(var(--nav-h) + 56px + env(safe-area-inset-bottom)); 
 #btnAlerts.on { background: var(--up); color: #07080d; }
 @media (max-width: 560px) { .al-btns { width: 100%; } .al-go { flex: 1; text-align: center; } }
 .ver { font: 600 .62rem var(--mono); color: var(--muted); border: 1px solid var(--line-2); border-radius: 99px; padding: 1px 7px; }
+
+.tc-what { font-size: .74rem; color: var(--text-2); margin-top: -3px; }
+.keynote { grid-column: 1 / -1; margin: 0; padding: 10px 12px; border-radius: 14px; font-size: .82rem; background: var(--warn-bg); color: var(--text); }
+.keynote a { color: var(--warn); text-decoration: underline; }

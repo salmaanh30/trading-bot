@@ -522,6 +522,10 @@
   }
 
   // ---------- the trial: 60-min opening-range breakout on the focus stocks (display only, no orders) ----------
+  const TRIAL_WHAT = {
+    NOK: "Mobile-network equipment (Finland)", HLN: "Sensodyne, Panadol, Centrum (UK)", VFC: "The North Face, Vans, Timberland",
+    BB: "Cybersecurity and car software", AAL: "Airline", PR: "Oil and gas drilling in Texas", SPY: "The 500 biggest US companies in one fund",
+  };
   const TRIAL = [
     ["NOK", "Nokia", 65, 0.40], ["HLN", "Haleon", 61, 0.39], ["VFC", "VF Corp", 58, 0.37],
     ["BB", "BlackBerry", 68, 0.36], ["AAL", "American Airlines", 58, 0.27], ["PR", "Permian Resources", 48, 0.23], ["SPY", "S&P 500 · benchmark", null, null],
@@ -703,8 +707,8 @@
       ? `<div class="tp-now off"><b>Market closed.</b> Opens ${at(570)}, in ${dur(ss.mins)}. Nothing to buy or sell until then. Weekends and US holidays stay closed.</div>`
       : `<div class="tp-now ${TRIAL_PHASES[cur][4]}"><b>Now: ${TRIAL_PHASES[cur][2]}.</b> ${TRIAL_PHASES[cur][3]} Next step in ${dur(TRIAL_PHASES[cur][1] - n.mins)}.</div>`;
     setHTML($("trialPlan"), head + `<ol class="tp-steps">${TRIAL_PHASES.map(([a, , title, txt, lvl], i) => `<li class="${i === cur ? "now " : ""}${lvl}"><div class="tp-t">${at(a)}</div><div><b>${title}</b><p>${txt}</p></div></li>`).join("")}</ol>`);
-    if (trialErr === "keys") { setHTML($("trialGrid"), `<p class="empty">Add your Alpaca <b>paper</b> keys in Settings to watch NOK, HLN, VFC, BB, AAL, PR and SPY live (free).</p>`); return; }
-    setHTML($("trialGrid"), TRIAL.map(([s, name, win, avgR]) => {
+    const keyNote = trialErr === "keys" ? `<p class="keynote">Live prices, buy/sell levels and alerts switch on once your Alpaca <b>paper</b> keys are in <a href="#settings">Settings</a>. The list below is the trial's focus list.</p>` : "";
+    setHTML($("trialGrid"), keyNote + TRIAL.map(([s, name, win, avgR]) => {
       const t = trial[s] || {}, bench = win == null, rd = bench ? null : trialRead(s, now);
       const pos = rd && rd.hi > rd.lo && t.price ? Math.max(3, Math.min(100, ((t.price - rd.lo) / (rd.hi - rd.lo)) * 100)) : 3;
       const col = !rd ? "var(--blue-2)" : rd.lvl === "good" ? "var(--up)" : rd.lvl === "bad" ? "var(--down)" : rd.lvl === "watch" ? "var(--warn)" : "rgba(255,255,255,.3)";
@@ -713,6 +717,7 @@
         <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" class="rt"/><circle cx="32" cy="32" r="26" pathLength="100" stroke="${col}" stroke-dasharray="${bench ? 100 : pos.toFixed(0)} 100" class="rv" transform="rotate(-90 32 32)"/><text x="32" y="36" text-anchor="middle">${s}</text></svg>
         <div class="tc-body">
           <div class="tc-top"><b>${esc(name)}</b><span class="num">${t.price ? px(t.price) : "–"} <i class="${cls(t.chg)}">${t.chg == null ? "" : arrow(t.chg) + pct(t.chg)}</i></span></div>
+          <div class="tc-what">${esc(TRIAL_WHAT[s] || "")}</div>
           ${status}
           ${rd && isFinite(rd.hi) ? `<div class="tc-sub num">Range ${px(rd.lo)}–${px(rd.hi)} · mid ${px(rd.mid)}</div>` : ""}
           ${bench ? "" : tradeLines(rd, t)}
