@@ -1,29 +1,29 @@
 {
-  "updated": "2026-11-05T16:15:00Z",
+  "updated": "2026-11-06T19:20:00Z",
   "source": "salmaan-first-trail-trade-test",
-  "note": "Practice day 1 (Thu 5 Nov): 60-min opening-range scan of 5,936 US stocks, 65 broke out, 12 fit the $28 budget. Every one checked faded back under its range high. No trade.",
+  "note": "Practice day 2 (Fri 6 Nov): no trade. 7 of 12 shortlist stocks broke their 60-min range, but the 10-minute checks did not run during the entry window and the user was rotating Alpaca keys, so nothing was proposed.",
   "plans": [
     {
-      "symbol": "ASAN",
+      "symbol": "CAG",
       "side": "long",
       "status": "done",
-      "setup": "Opening-range breakout above 60-min high ($11.67)",
-      "entry": 11.73,
-      "stop": 11.43,
-      "target": 12.33,
+      "setup": "Opening-range breakout above 60-min high ($15.26)",
+      "entry": 15.30,
+      "stop": 15.01,
+      "target": 15.88,
       "qty": 1,
-      "notes": "Triggered 10:35 ET, no news. Faded to $11.66, below the range high, by 11:05 ET. Not taken."
+      "notes": "First trigger of the day, 10:35 ET. Not proposed (checks missed). Not taken."
     },
     {
-      "symbol": "ALKT",
+      "symbol": "COLD",
       "side": "long",
       "status": "done",
-      "setup": "Opening-range breakout above 60-min high ($13.35)",
-      "entry": 13.40,
-      "stop": 13.24,
-      "target": 13.72,
+      "setup": "Opening-range breakout above 60-min high ($15.79)",
+      "entry": 15.81,
+      "stop": 15.45,
+      "target": 16.53,
       "qty": 1,
-      "notes": "Triggered 10:35 ET, routine partnership news only. Faded to $13.26, 2 cents above the stop. Not taken."
+      "notes": "Triggered 10:50 ET, day after earnings. Not proposed (checks missed). Not taken."
     }
   ]
 }
