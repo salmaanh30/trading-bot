@@ -1410,7 +1410,7 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
     S.settings = {
       ...S.settings,
       riskPct: +f.riskPct.value || 1, dailyLossPct: +f.dailyLossPct.value || 3, maxPosPct: +f.maxPosPct.value || 25,
-      startCash: +f.startCash.value || 10000, symbols: f.symbols.value || DEFAULTS.settings.symbols,
+      startCash: +f.startCash.value || DEFAULTS.settings.startCash, symbols: f.symbols.value || DEFAULTS.settings.symbols,
       alpacaKey: f.alpacaKey.value.trim(), alpacaSecret: f.alpacaSecret.value.trim(), anthropicKey: f.anthropicKey.value.trim(),
     };
     convo = [];
