@@ -1415,6 +1415,8 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
     };
     convo = [];
     log("Settings saved.");
+    const note = $("savedNote");
+    if (note) { note.textContent = "✓ Saved" + (S.settings.alpacaKey ? " · Alpaca keys stored on this device" : ""); clearTimeout(note._t); note._t = setTimeout(() => { note.textContent = ""; }, 6000); }
     if (S.settings.symbols !== oldSyms) boot();
     refreshAlpaca(); loadSignals();
   });
