@@ -771,7 +771,7 @@
     const t = trial[tSel] || {}, bars = t.chart || [];
     $("tSym").textContent = tSel;
     $("tPx").textContent = t.price ? px(t.price) : "–";
-    $("tChg").className = "num " + cls(t.chg); $("tChg").textContent = t.chg == null ? "" : `${arrow(t.chg)}${pct(t.chg)} today`;
+    $("tChg").className = "num " + cls(t.chg); $("tChg").textContent = t.chg == null ? "" : `${arrow(t.chg)}${pct(t.chg)} ${t.live ? "today" : "last session"}`;
     $("tDay").textContent = t.chartDay ? (t.live ? "Today · live" : `Last session · ${t.chartDay}`) : "";
     const H = tCanvas.clientWidth < 500 ? 300 : 380;
     const [g, W] = fitCanvas(tCanvas, H);
@@ -1402,8 +1402,12 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
     const all = m.candles, ind = indicators(all);
     const n = Math.min(all.length, W < 500 ? 60 : 110), start = all.length - n, c = all.slice(start);
     const pos = S.positions[selected];
+    // with no position: where the stop and target would sit if the bot bought on the current candle
+    const aNow = ind.atr[all.length - 1], lastC = all.at(-1).c;
+    const plan = pos ? null : aNow ? { stop: lastC - 1.5 * aNow, target: lastC + 3 * aNow } : null;
     let lo = Math.min(...c.map((b) => b.l)), hi = Math.max(...c.map((b) => b.h));
     if (pos) { lo = Math.min(lo, pos.stop); hi = Math.max(hi, pos.target); }
+    if (plan) { lo = Math.min(lo, plan.stop); hi = Math.max(hi, plan.target); }
     const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
     const axisW = 66, plotW = W - axisW, step = plotW / n;
     const pTop = 6, pH = H * 0.64, vTop = pTop + pH + 4, vH = H * 0.1, rTop = vTop + vH + 14, rH = H - rTop - 18;
@@ -1455,6 +1459,12 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
         g.fillStyle = col; g.fillText(lab, 6, y(v) - 4);
       });
     }
+    if (plan) {
+      [[plan.stop, down, "stop if it buys"], [plan.target, up, "target if it buys"]].forEach(([v, col, lab]) => {
+        g.strokeStyle = col; g.globalAlpha = 0.75; g.setLineDash([3, 5]); g.lineWidth = 1; g.beginPath(); g.moveTo(0, y(v)); g.lineTo(plotW, y(v)); g.stroke(); g.setLineDash([]);
+        g.fillStyle = col; g.fillText(`${lab} ${px(v)}`, 6, y(v) - 4); g.globalAlpha = 1;
+      });
+    }
     // last price tag
     const last = c.at(-1).c;
     g.fillStyle = last >= c.at(-1).o ? up : down; g.fillRect(plotW, y(last) - 9, axisW, 18);
@@ -1477,6 +1487,10 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
     else if (k.e9 > k.e21) msg = "Uptrend, but the bot waits for a fresh cross (EMA 9 back under 21, then over) to enter.";
     else msg = `Above EMA 50. Buy triggers when EMA 9 (${px(k.e9)}) closes a candle above EMA 21 (${px(k.e21)}).`;
     $("signalNow").textContent = (S.auto ? "Autopilot ON. " : "Autopilot off. ") + msg;
+    // the risks, from a backtest of this exact rule on real Coinbase candles (run 8 Nov 2026, 0.1% fee per side)
+    const BT = { 300: "5-min candles, last 30 days, 705 trades: target hit 24%, stop hit 50%. Average −0.15R before fees, −1.79R after. $28 → $12.", 900: "15-min candles, last 60 days, 424 trades: target hit 28%, stop hit 46%. Average 0.00R before fees, −1.00R after. $28 → $19." };
+    const fee = k ? ` Right now the stop would be ${k.stopPct.toFixed(2)}% away and fees take ${Math.round(k.feeShare * 100)}% of what's at risk.` : "";
+    $("chartRisk").innerHTML = `<b>The risks:</b> ${BT[tf()] ? "Tested on " + BT[tf()] : "1-min candles aren't tested; expect worse (fees are bigger next to tiny stops)."}${coin(selected) === "GOLD" ? " Gold was the worst coin on every timeframe." : ""}${fee} <b>This rule loses money after fees. Pretend money only.</b>`;
   }
   function renderSpark() {
     if ($("view-home").hidden) return;

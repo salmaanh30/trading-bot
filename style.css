@@ -151,6 +151,8 @@ canvas { display: block; }
 .k::before { content: ""; display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 6px; }
 .k1::before { background: var(--ema1); } .k2::before { background: var(--ema2); } .k3::before { background: var(--ema3); } .k4::before { background: var(--rsi); }
 #tChart { width: 100%; touch-action: pan-y; }
+.risk-note { margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(248, 113, 113, .35); background: rgba(248, 113, 113, .07); color: var(--text-2); line-height: 1.45; }
+.risk-note b { color: var(--text); }
 #tPx { font-size: 1.1rem; font-weight: 600; margin-left: 6px; }
 .kr::before { background: rgba(96, 165, 250, .55); height: 8px !important; }
 .kb::before { background: var(--warn); } .ks::before { background: var(--down); } .kt::before { background: var(--up); } .kp::before { background: #f4f4f8; }
