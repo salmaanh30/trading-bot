@@ -44,6 +44,8 @@
   let sigInfo = {};
   const quotes = {};
   let alpacaEquity = null;
+  let alpacaPos = []; // open Alpaca paper positions, refreshed every 30 s
+  let tSel = "NOK", tHoverX = null; // trial chart: selected stock and crosshair
   let insights = [];
   let verdict = { lvl: "watch", title: "Reading the market…" };
 
@@ -539,7 +541,7 @@
     if (!S.settings.alpacaKey || !S.settings.alpacaSecret) { trialErr = "keys"; queueRender(); return; }
     const syms = TRIAL.map((t) => t[0]).join(",");
     try {
-      const start = new Date(Date.now() - 20 * 3600e3).toISOString();
+      const start = new Date(Date.now() - 4 * 864e5).toISOString(); // 4 days back so the chart can show the last session on weekends
       const [snap, bars] = await Promise.all([
         fetch(`${ALPACA_DATA}/v2/stocks/snapshots?feed=iex&symbols=${syms}`, { headers: alpacaHeaders() }).then((r) => r.json()),
         fetch(`${ALPACA_DATA}/v2/stocks/bars?feed=iex&timeframe=5Min&limit=10000&start=${start}&symbols=${syms}`, { headers: alpacaHeaders() }).then((r) => r.json()),
@@ -548,8 +550,10 @@
       trial = {};
       for (const [s] of TRIAL) {
         const x = snap?.[s], price = x?.latestTrade?.p, prev = x?.prevDailyBar?.c;
-        const bs = (bars?.bars?.[s] || []).map((b) => ({ ...etInfo(new Date(b.t)), h: b.h, l: b.l, c: b.c })).filter((b) => b.day === today && b.mins >= 570);
-        trial[s] = { price, chg: price && prev ? ((price - prev) / prev) * 100 : null, bars: bs, day: x?.dailyBar };
+        const all = (bars?.bars?.[s] || []).map((b) => ({ ...etInfo(new Date(b.t)), t: Date.parse(b.t), o: b.o, h: b.h, l: b.l, c: b.c, v: b.v || 0 })).filter((b) => b.mins >= 570 && b.mins < 960);
+        const bs = all.filter((b) => b.day === today);
+        const chartDay = bs.length ? today : all.at(-1)?.day; // today, or the last session when the market hasn't opened yet
+        trial[s] = { price, chg: price && prev ? ((price - prev) / prev) * 100 : null, bars: bs, day: x?.dailyBar, chart: all.filter((b) => b.day === chartDay), chartDay, live: chartDay === today };
       }
       trialErr = "";
     } catch (e) { trialErr = "fetch"; }
@@ -744,9 +748,134 @@
     const risk = rd.hi - rd.mid, tgt = rd.hi + 2 * risk, wide = risk > MAX_LOSS;
     return `<div class="tc-plan"><span class="k buy">BUY</span> if a 5-min bar closes above <b>${px(rd.hi)}</b>, 10:35–13:30 ET<br><span class="k sell">SELL</span> ≈ <b>${px(tgt)}</b> profit (+$${(2 * risk).toFixed(2)}) · <b>${px(rd.mid)}</b> stop (−$${risk.toFixed(2)}) · or at 14:30 ET${wide ? `<br><span class="k skip">SKIP</span> the stop is $${risk.toFixed(2)} away, over the $0.50 max loss.` : ""}</div>`;
   }
+  // ---------- trial chart: today's 5-min candles with the rule drawn on (display only, no orders) ----------
+  function orbFrom(bars) { // same rule as trialRead, on any session's bars
+    const orb = bars.filter((b) => b.mins < T_OR_END);
+    if (!orb.length) return null;
+    const hi = Math.max(...orb.map((b) => b.h)), lo = Math.min(...orb.map((b) => b.l)), mid = (hi + lo) / 2;
+    const r = { hi, lo, mid, locked: bars.some((b) => b.mins >= T_OR_END), stop: mid, target: hi + 2 * (hi - mid) };
+    const trig = bars.find((b) => b.mins + 5 >= T_ENTRY_FROM && b.mins + 5 <= T_ENTRY_TO && b.c > hi);
+    if (trig) Object.assign(r, { entry: trig.c, trigMins: trig.mins + 5, trigIdx: (trig.mins - 570) / 5, target: trig.c + 2 * (trig.c - mid) });
+    return r;
+  }
+  const tCanvas = $("tChart");
+  function renderTrialChart(now) {
+    const syms = TRIAL.map((t) => t[0]);
+    const box = $("tChips");
+    if (box.childElementCount !== syms.length) box.innerHTML = syms.map((s) => `<button class="chip" data-sym="${s}"><span>${s}</span><span class="num"></span></button>`).join("");
+    box.querySelectorAll(".chip").forEach((el) => {
+      const t = trial[el.dataset.sym];
+      el.classList.toggle("sel", el.dataset.sym === tSel);
+      const n = el.querySelector(".num"); n.className = "num " + cls(t?.chg); n.textContent = t?.chg == null ? "" : pct(t.chg);
+    });
+    const t = trial[tSel] || {}, bars = t.chart || [];
+    $("tSym").textContent = tSel;
+    $("tPx").textContent = t.price ? px(t.price) : "–";
+    $("tChg").className = "num " + cls(t.chg); $("tChg").textContent = t.chg == null ? "" : `${arrow(t.chg)}${pct(t.chg)} today`;
+    $("tDay").textContent = t.chartDay ? (t.live ? "Today · live" : `Last session · ${t.chartDay}`) : "";
+    const H = tCanvas.clientWidth < 500 ? 300 : 380;
+    const [g, W] = fitCanvas(tCanvas, H);
+    if (!bars.length) {
+      g.fillStyle = "rgba(244,244,248,.45)"; g.font = "13px Inter, sans-serif";
+      g.fillText(trialErr === "keys" ? "Add your Alpaca paper keys in Settings to see the chart." : "Loading 5-min bars…", 12, H / 2);
+      $("tNow").textContent = ""; setHTML($("tPos"), ""); return;
+    }
+    const lv = orbFrom(bars), pos = alpacaPos.find((p) => p.symbol === tSel);
+    const posPx = pos ? parseFloat(pos.avg_entry_price) : null;
+    let lo = Math.min(...bars.map((b) => b.l)), hi = Math.max(...bars.map((b) => b.h));
+    if (lv?.locked) { lo = Math.min(lo, lv.stop); hi = Math.max(hi, lv.target); }
+    if (posPx) { lo = Math.min(lo, posPx); hi = Math.max(hi, posPx); }
+    const pad = (hi - lo) * 0.08 || 0.05; lo -= pad; hi += pad;
+    const SLOTS = 78, axisW = 60, plotW = W - axisW, step = plotW / SLOTS; // whole session 9:30-16:00
+    const pTop = 6, pH = H * 0.78, vTop = pTop + pH + 6, vH = H - vTop - 18;
+    const y = (v) => pTop + pH - ((v - lo) / (hi - lo)) * pH;
+    const xs = (i) => i * step + step / 2;
+    const up = cssVar("--up"), down = cssVar("--down"), warn = cssVar("--warn") || "#fbbf24";
+    g.font = "10.5px JetBrains Mono, monospace"; g.lineWidth = 1;
+    for (let k = 0; k <= 4; k++) {
+      const v = lo + ((hi - lo) * k) / 4, yy = Math.round(y(v)) + 0.5;
+      g.strokeStyle = "rgba(255,255,255,0.05)"; g.beginPath(); g.moveTo(0, yy); g.lineTo(plotW, yy); g.stroke();
+      g.fillStyle = "rgba(244,244,248,0.45)"; g.fillText(px(v), plotW + 6, yy + 4);
+    }
+    // phase markers: range ends 10:30, last entry 13:30, flat 14:30
+    [[T_OR_END, "10:30"], [T_ENTRY_TO, "13:30"], [T_FLAT, "14:30 flat"]].forEach(([m, lab]) => {
+      const xx = Math.round(((m - 570) / 5) * step) + 0.5;
+      g.strokeStyle = "rgba(255,255,255,.12)"; g.setLineDash([2, 4]); g.beginPath(); g.moveTo(xx, pTop); g.lineTo(xx, vTop + vH); g.stroke(); g.setLineDash([]);
+      g.fillStyle = "rgba(244,244,248,.4)"; g.fillText(lab, xx + 3, H - 4);
+    });
+    g.fillStyle = "rgba(244,244,248,.4)"; g.fillText("9:30", 2, H - 4);
+    // opening range box
+    if (lv) {
+      g.fillStyle = "rgba(96,165,250,.12)"; g.strokeStyle = "rgba(96,165,250,.5)";
+      const bw = Math.min(12, (Math.max(...bars.filter((b) => b.mins < T_OR_END).map((b) => b.mins)) - 570) / 5 + 1) * step;
+      g.fillRect(0, y(lv.hi), bw, y(lv.lo) - y(lv.hi)); g.strokeRect(0.5, y(lv.hi) + 0.5, bw, y(lv.lo) - y(lv.hi));
+    }
+    // rule levels once the range is locked
+    const level = (v, col, lab, dash = [5, 4], right = false) => {
+      const yy = Math.round(y(v)) + 0.5, txt = `${lab} ${px(v)}`;
+      g.strokeStyle = col; g.setLineDash(dash); g.beginPath(); g.moveTo(0, yy); g.lineTo(plotW, yy); g.stroke(); g.setLineDash([]);
+      g.fillStyle = col; g.fillText(txt, right ? plotW - g.measureText(txt).width - 4 : 4, right ? yy + 13 : yy - 4);
+    };
+    if (lv?.locked) {
+      level(lv.hi, warn, lv.entry ? "range high" : "buy above");
+      level(lv.stop, down, "stop");
+      level(lv.target, up, "target");
+    }
+    if (posPx) level(posPx, "#f4f4f8", `you: ${pos.qty} @`, [], true);
+    // candles + volume
+    const vmax = Math.max(...bars.map((b) => b.v)) || 1;
+    const cw = Math.max(2, step * 0.64);
+    bars.forEach((b) => {
+      const i = (b.mins - 570) / 5, col = b.c >= b.o ? up : down;
+      g.strokeStyle = col; g.fillStyle = col;
+      g.beginPath(); g.moveTo(xs(i), y(b.h)); g.lineTo(xs(i), y(b.l)); g.stroke();
+      g.fillRect(xs(i) - cw / 2, y(Math.max(b.o, b.c)), cw, Math.max(1, Math.abs(y(b.o) - y(b.c))));
+      g.fillStyle = b.c >= b.o ? "rgba(52,211,153,.35)" : "rgba(248,113,113,.35)";
+      const vh = (b.v / vmax) * vH; g.fillRect(xs(i) - cw / 2, vTop + vH - vh, cw, vh);
+    });
+    // breakout marker
+    if (lv?.entry != null) {
+      const xx = xs(lv.trigIdx), yy = y(lv.entry) - 10;
+      g.fillStyle = warn; g.beginPath(); g.moveTo(xx, yy + 6); g.lineTo(xx - 6, yy - 4); g.lineTo(xx + 6, yy - 4); g.closePath(); g.fill();
+      g.fillText("BUY", xx - 10, yy - 7);
+    }
+    // last price tag
+    const last = t.live && t.price ? t.price : bars.at(-1).c;
+    g.fillStyle = last >= bars.at(-1).o ? up : down; g.fillRect(plotW, y(last) - 9, axisW, 18);
+    g.fillStyle = "#07080d"; g.fillText(px(last), plotW + 5, y(last) + 4);
+    // crosshair
+    const tip = $("tTip");
+    const hb = tHoverX != null && tHoverX < plotW ? bars.reduce((best, b) => (Math.abs(xs((b.mins - 570) / 5) - tHoverX) < Math.abs(xs((best.mins - 570) / 5) - tHoverX) ? b : best), bars[0]) : null;
+    if (hb) {
+      const xx = xs((hb.mins - 570) / 5);
+      g.strokeStyle = "rgba(255,255,255,.25)"; g.beginPath(); g.moveTo(xx, 0); g.lineTo(xx, H - 14); g.stroke();
+      tip.hidden = false;
+      tip.innerHTML = `${etClock(hb.mins)} ET<br>O ${px(hb.o)} H ${px(hb.h)}<br>L ${px(hb.l)} C ${px(hb.c)}<br>Vol ${compact(hb.v)}`;
+      tip.style.left = (xx + 160 > W ? xx - 162 : xx + 12) + "px"; tip.style.top = "8px";
+    } else tip.hidden = true;
+    // plain-words status under the chart
+    let msg;
+    if (t.live) msg = trialRead(tSel, now).word;
+    else if (!lv) msg = "No bars for the last session.";
+    else msg = lv.entry != null ? `Last session: broke out at ${etClock(lv.trigMins)} ET at ${px(lv.entry)}.` : "Last session: no breakout above the range high.";
+    if (lv?.locked && lv.entry == null && t.live && now.mins <= T_ENTRY_TO && t.price) {
+      const gap = lv.hi - t.price;
+      msg += gap > 0 ? ` Price is ${px(gap)} below the buy line.` : " Price is above the line; it needs a 5-min bar to CLOSE above it.";
+    }
+    $("tNow").textContent = msg;
+    if (pos) {
+      const pl = parseFloat(pos.unrealized_pl), plPct = parseFloat(pos.unrealized_plpc) * 100;
+      setHTML($("tPos"), `<div class="rows"><div class="r"><div><div class="t">You hold ${esc(pos.qty)} ${esc(pos.symbol)} (Alpaca paper)</div><div class="s">bought @ ${px(posPx)} · now ${px(+pos.current_price)}${lv?.locked ? ` · stop ${px(lv.stop)} · target ${px(lv.target)}` : ""}</div></div><div class="v ${cls(pl)}">${arrow(pl)}${money(pl, true)} (${pct(plPct)})</div></div></div>`);
+    } else setHTML($("tPos"), "");
+  }
+  tCanvas.addEventListener("pointermove", (e) => { tHoverX = e.offsetX; queueRender(); });
+  tCanvas.addEventListener("pointerleave", () => { tHoverX = null; queueRender(); });
+  $("tChips").addEventListener("click", (e) => { const b = e.target.closest(".chip"); if (b) { tSel = b.dataset.sym; queueRender(); } });
+
   function renderTrial() {
     if ($("view-trial").hidden) return;
     const n = etInfo(new Date()), open = n.wk && n.mins >= 570 && n.mins < 960, now = { ...n, open };
+    renderTrialChart(now);
     const sast = new Date().toLocaleTimeString([], { timeZone: "Africa/Johannesburg", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
     const ck = $("trialClock"); ck.className = `pill ${open ? "live" : "off"}`;
     ck.lastElementChild.textContent = `${open ? "US market open" : "US market closed"} · ${etClock(n.mins)} ET · ${sast} SAST`;
@@ -1072,6 +1201,7 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
     try {
       const [acct, positions] = await Promise.all([alpaca("/v2/account"), alpaca("/v2/positions")]);
       alpacaEquity = parseFloat(acct.equity);
+      alpacaPos = positions;
       const dayPl = alpacaEquity - parseFloat(acct.last_equity);
       out.className = "";
       out.innerHTML = `
