@@ -1,13 +1,13 @@
 {
-  "updated": "2026-11-09T14:00:00Z",
+  "updated": "2026-11-09T15:41:00Z",
   "source": "salmaan-first-trail-trade-test",
-  "note": "Trial day 1 (Mon 9 Nov). Pre-market news check: nothing rules out any focus stock today (no earnings today, no halts, no bad 8-Ks). All 6 watched. Range builds 16:30-17:30 SAST; breakout checks every 10 min from 17:35. Max 1 trade, 1 share, max loss $0.50.",
+  "note": "Trial day 1 (Mon 9 Nov). 10:35 ET: NOK and BB both broke their 60-min range. BB = GOOD (proposed, waiting for the user's yes). NOK = BAD skip (already +7% today, target first in under 1% of replays). Max 1 trade today.",
   "plans": [
-    {"symbol": "NOK", "side": "long", "status": "watching", "setup": "60-min opening-range breakout", "notes": "+2.7% Fri. No company news since Fri."},
-    {"symbol": "HLN", "side": "long", "status": "watching", "setup": "60-min opening-range breakout", "notes": "Flat Fri, closed near the day's high. No news."},
-    {"symbol": "VFC", "side": "long", "status": "watching", "setup": "60-min opening-range breakout", "notes": "Flat Fri. No company news."},
-    {"symbol": "BB", "side": "long", "status": "watching", "setup": "60-min opening-range breakout", "notes": "+4.4% Fri. Weekend headlines: Valeo QNX deal and China camera design wins. Can be jumpy."},
-    {"symbol": "AAL", "side": "long", "status": "watching", "setup": "60-min opening-range breakout", "notes": "+1.9% Fri. No company news."},
-    {"symbol": "PR", "side": "long", "status": "watching", "setup": "60-min opening-range breakout", "notes": "+1.9% Fri. Q3 earnings were last week (old news). Moves with oil prices."}
+    {"symbol": "BB", "side": "long", "status": "triggered", "setup": "60-min opening-range breakout above $8.88", "entry": 8.92, "stop": 8.78, "target": 9.14, "qty": 1, "notes": "GOOD: proposed, 1 share limit 8.92 bracket. Max loss $0.14. Past 20 triggers: 0 stops. Waiting for the user's yes. Not placed."},
+    {"symbol": "NOK", "side": "long", "status": "done", "setup": "60-min opening-range breakout above $8.18", "entry": 8.19, "stop": 8.03, "target": 8.51, "qty": 1, "notes": "BAD: skip. Already up 6.9% today with no clear news; target reached first in under 1% of 10,000 replays."},
+    {"symbol": "HLN", "side": "long", "status": "watching", "setup": "60-min opening-range breakout above $9.09", "notes": "Not triggered."},
+    {"symbol": "VFC", "side": "long", "status": "watching", "setup": "60-min opening-range breakout above $21.02", "notes": "Not triggered."},
+    {"symbol": "AAL", "side": "long", "status": "watching", "setup": "60-min opening-range breakout above $14.14", "notes": "Not triggered."},
+    {"symbol": "PR", "side": "long", "status": "watching", "setup": "60-min opening-range breakout above $21.70", "notes": "Not triggered."}
   ]
 }
