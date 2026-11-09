@@ -1,29 +1,13 @@
 {
-  "updated": "2026-11-06T19:20:00Z",
+  "updated": "2026-11-09T14:00:00Z",
   "source": "salmaan-first-trail-trade-test",
-  "note": "Practice day 2 (Fri 6 Nov): no trade. 7 of 12 shortlist stocks broke their 60-min range, but the 10-minute checks did not run during the entry window and the user was rotating Alpaca keys, so nothing was proposed.",
+  "note": "Trial day 1 (Mon 9 Nov). Pre-market news check: nothing rules out any focus stock today (no earnings today, no halts, no bad 8-Ks). All 6 watched. Range builds 16:30-17:30 SAST; breakout checks every 10 min from 17:35. Max 1 trade, 1 share, max loss $0.50.",
   "plans": [
-    {
-      "symbol": "CAG",
-      "side": "long",
-      "status": "done",
-      "setup": "Opening-range breakout above 60-min high ($15.26)",
-      "entry": 15.30,
-      "stop": 15.01,
-      "target": 15.88,
-      "qty": 1,
-      "notes": "First trigger of the day, 10:35 ET. Not proposed (checks missed). Not taken."
-    },
-    {
-      "symbol": "COLD",
-      "side": "long",
-      "status": "done",
-      "setup": "Opening-range breakout above 60-min high ($15.79)",
-      "entry": 15.81,
-      "stop": 15.45,
-      "target": 16.53,
-      "qty": 1,
-      "notes": "Triggered 10:50 ET, day after earnings. Not proposed (checks missed). Not taken."
-    }
+    {"symbol": "NOK", "side": "long", "status": "watching", "setup": "60-min opening-range breakout", "notes": "+2.7% Fri. No company news since Fri."},
+    {"symbol": "HLN", "side": "long", "status": "watching", "setup": "60-min opening-range breakout", "notes": "Flat Fri, closed near the day's high. No news."},
+    {"symbol": "VFC", "side": "long", "status": "watching", "setup": "60-min opening-range breakout", "notes": "Flat Fri. No company news."},
+    {"symbol": "BB", "side": "long", "status": "watching", "setup": "60-min opening-range breakout", "notes": "+4.4% Fri. Weekend headlines: Valeo QNX deal and China camera design wins. Can be jumpy."},
+    {"symbol": "AAL", "side": "long", "status": "watching", "setup": "60-min opening-range breakout", "notes": "+1.9% Fri. No company news."},
+    {"symbol": "PR", "side": "long", "status": "watching", "setup": "60-min opening-range breakout", "notes": "+1.9% Fri. Q3 earnings were last week (old news). Moves with oil prices."}
   ]
 }
