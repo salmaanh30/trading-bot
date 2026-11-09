@@ -47,6 +47,48 @@
   let alpacaPos = []; // open Alpaca paper positions, refreshed every 30 s
   let alpacaBuysToday = []; // symbols bought (or with a live buy order) in today's session
   const tradedToday = () => alpacaPos.length > 0 || alpacaBuysToday.length > 0;
+  // ---------- stock trial money card (Alpaca paper account = the trial account) ----------
+  const TRIAL_START = "2026-11-09", TRIAL_CASH = 28, SPY_START = 735.40, TRIAL_MAX_LOSS = 0.5;
+  let alpacaAcct = null, alpacaTrips = [];
+  function tripsFrom(fills) { // pair buys and sells first-in first-out into closed trades
+    const q = {}, out = [];
+    for (const f of fills || []) {
+      const s = f.symbol, n = +f.qty, p = +f.price, t = Date.parse(f.transaction_time);
+      (q[s] ||= []);
+      if (f.side === "buy") { q[s].push({ n, p }); continue; }
+      let left = n, cost = 0, got = 0;
+      while (left > 0 && q[s].length) { const lot = q[s][0], k = Math.min(left, lot.n); cost += k * lot.p; got += k; lot.n -= k; left -= k; if (!lot.n) q[s].shift(); }
+      if (got) out.push({ sym: s, t, pl: got * p - cost });
+    }
+    return out;
+  }
+  function renderTrialPf() {
+    const a = alpacaAcct; if (!a || !$("tpEquity")) return;
+    const eq = +a.equity, cash = +a.cash, inv = +a.long_market_value || 0, total = eq - TRIAL_CASH, today = eq - +a.last_equity;
+    $("tpEquity").textContent = money(eq);
+    $("tpTotal").textContent = arrow(total) + money(total, true);
+    $("tpToday").textContent = arrow(today) + money(today, true);
+    const myPct = (total / TRIAL_CASH) * 100, spy = trial.SPY?.price;
+    if (spy) { const sp = (spy / SPY_START - 1) * 100, ahead = myPct - sp; $("tpSpy").textContent = `you ${pct(myPct)} · SPY ${pct(sp)} → ${ahead >= 0 ? "ahead" : "behind"} by ${Math.abs(ahead).toFixed(2)} pts`; }
+    $("tpCash").textContent = money(cash);
+    $("tpInv").textContent = money(inv);
+    const wins = alpacaTrips.filter((x) => x.pl > 0).length, n = alpacaTrips.length;
+    $("tpWin").textContent = n ? `${Math.round((wins / n) * 100)}% · ${n}` : "–";
+    const used = Math.max(0, Math.min(1, -today / TRIAL_MAX_LOSS));
+    $("tpLoss").textContent = `${Math.round(used * 100)}% of ${money(TRIAL_MAX_LOSS)}`;
+    $("tpLossBar").style.width = used * 100 + "%";
+    $("tpLossBar").style.background = used > 0.75 ? "var(--down)" : used > 0.4 ? "var(--warn)" : "var(--up)";
+    const end = Date.parse("2026-12-04T21:00:00Z"), d0 = Date.parse(TRIAL_START + "T00:00:00Z");
+    const lastT = alpacaTrips.at(-1);
+    $("tpNote").textContent = Date.now() < d0 ? "The trial starts Mon 9 Nov." : Date.now() > end ? "Trial finished. Score it against SPY." :
+      `${n} trade${n === 1 ? "" : "s"} so far${lastT ? `, last: ${lastT.sym} ${money(lastT.pl, true)}` : ""}. ${tradedToday() ? "Today's 1 trade is used: no more buys today." : "No trade yet today."}`;
+    if (!$("view-trial").hidden) {
+      let run = TRIAL_CASH; const pts = [{ t: d0, eq: TRIAL_CASH }];
+      for (const x of alpacaTrips) pts.push({ t: x.t, eq: (run += x.pl) });
+      pts.push({ t: Date.now(), eq });
+      drawSparkBars($("tpSpark"), pts);
+    }
+  }
   let tSel = "NOK", tHoverX = null; // trial chart: selected stock and crosshair
   let insights = [];
   let verdict = { lvl: "watch", title: "Reading the market…" };
@@ -879,7 +921,7 @@
   function renderTrial() {
     if ($("view-trial").hidden) return;
     const n = etInfo(new Date()), open = n.wk && n.mins >= 570 && n.mins < 960, now = { ...n, open };
-    renderTrialChart(now);
+    renderTrialChart(now); renderTrialPf();
     const sast = new Date().toLocaleTimeString([], { timeZone: "Africa/Johannesburg", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
     const ck = $("trialClock"); ck.className = `pill ${open ? "live" : "off"}`;
     ck.lastElementChild.textContent = `${open ? "US market open" : "US market closed"} · ${etClock(n.mins)} ET · ${sast} SAST`;
@@ -1209,6 +1251,9 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
       alpacaPos = positions;
       alpacaBuysToday = buys.filter((o) => o.side === "buy" && (+o.filled_qty > 0 || !["canceled", "rejected", "expired"].includes(o.status))).map((o) => o.symbol);
       if (tradedToday() && active.some((a) => a.kind === "buy")) { active = active.filter((a) => a.kind !== "buy"); renderAlerts(); }
+      alpacaAcct = acct;
+      try { alpacaTrips = tripsFrom(await alpaca(`/v2/account/activities/FILL?after=${TRIAL_START}T00:00:00Z&direction=asc&page_size=100`)); } catch (e) { /* keep last */ }
+      renderTrialPf();
       const dayPl = alpacaEquity - parseFloat(acct.last_equity);
       out.className = "";
       out.innerHTML = `
@@ -1501,9 +1546,11 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
   }
   function renderSpark() {
     if ($("view-home").hidden) return;
-    const cv = $("spark"), h = cv.clientHeight || 70;
+    drawSparkBars($("spark"), [...S.eqHist, { t: Date.now(), eq: equity() }]);
+  }
+  function drawSparkBars(cv, pts) {
+    const h = cv.clientHeight || 70;
     const [g, W] = fitCanvas(cv, h);
-    const pts = [...S.eqHist, { t: Date.now(), eq: equity() }];
     if (pts.length < 2) { g.strokeStyle = "rgba(255,255,255,.15)"; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(0, h / 2); g.lineTo(W, h / 2); g.stroke(); g.setLineDash([]); return; }
     const lo = Math.min(...pts.map((p) => p.eq)), hi = Math.max(...pts.map((p) => p.eq)), span = hi - lo || 1;
     const t0 = pts[0].t, t1 = pts.at(-1).t || t0 + 1;

@@ -20,7 +20,7 @@
   <div class="aurora" aria-hidden="true"><span></span><span></span></div>
 
   <header class="top">
-    <div class="brand"><span class="logo" aria-hidden="true">A</span><span>Autopilot</span><span class="ver">v20</span></div>
+    <div class="brand"><span class="logo" aria-hidden="true">A</span><span>Autopilot</span><span class="ver">v21</span></div>
     <div class="top-right">
       <div class="pill" id="nyse" title="US stock market (New York). Holidays not counted."><span class="dot"></span><span>NYSE</span></div>
       <div class="pill" id="feedStatus"><span class="dot"></span><span>Connecting…</span></div>
@@ -102,6 +102,23 @@
 
     <!-- ================= TRIAL ================= -->
     <section class="view" id="view-trial" data-view="trial" hidden>
+      <div class="portfolio trial-pf">
+        <div>
+          <p class="eyebrow">Stock trial · Alpaca paper · <span id="tpDay">Nov 9 – Dec 4</span></p>
+          <div class="big" id="tpEquity">$28.00</div>
+          <div class="chg-line"><span id="tpTotal">$0.00</span><span class="muted"> since start</span> · <span id="tpToday">$0.00</span><span class="muted"> today</span></div>
+          <div class="chg-line small"><span class="muted">vs just holding the S&amp;P (SPY): </span><span id="tpSpy">–</span></div>
+        </div>
+        <canvas id="tpSpark" class="spark" aria-label="Trial account over time"></canvas>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><span class="label">Cash</span><span class="num" id="tpCash">–</span></div>
+        <div class="kpi"><span class="label">Invested</span><span class="num" id="tpInv">–</span></div>
+        <div class="kpi"><span class="label">Win rate</span><span class="num" id="tpWin">–</span></div>
+        <div class="kpi"><span class="label">Daily loss used</span><span class="num" id="tpLoss">–</span><span class="meter"><i id="tpLossBar"></i></span></div>
+      </div>
+      <p class="muted small" id="tpNote"></p>
+
       <div class="card">
         <div class="card-head"><div><p class="eyebrow">Live chart · Alpaca paper · 5-min candles</p><h2>Watch the breakout</h2></div></div>
         <div class="chips" id="tChips"></div>

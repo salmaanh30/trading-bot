@@ -281,7 +281,12 @@ body { background-color: var(--bg); background-image: linear-gradient(rgba(255,2
   background: radial-gradient(90% 120% at 100% 0%, rgba(255,255,255,.22), transparent 55%), linear-gradient(150deg, var(--blue-2), var(--blue) 45%, #2633b8); box-shadow: 0 30px 70px -35px rgba(61,90,254,.9); }
 .portfolio .eyebrow, .portfolio .muted { color: rgba(255,255,255,.75); }
 .portfolio .big { font-family: var(--display); font-size: clamp(2.6rem, 9vw, 4.4rem); letter-spacing: -.04em; line-height: .95; }
-.portfolio .up, .portfolio .down { color: #fff; } .portfolio #statTotal, .portfolio #statToday { background: rgba(255,255,255,.18); padding: 2px 9px; border-radius: 99px; font-family: var(--mono); font-size: .8rem; }
+.portfolio .up, .portfolio .down { color: #fff; } .portfolio #statTotal, .portfolio #statToday, .portfolio #tpTotal, .portfolio #tpToday { background: rgba(255,255,255,.18); padding: 2px 9px; border-radius: 99px; font-family: var(--mono); font-size: .8rem; }
+.trial-pf { background: radial-gradient(90% 120% at 100% 0%, rgba(255,255,255,.2), transparent 55%), linear-gradient(150deg, #1fb57a, #12865a 50%, #0b5e44); box-shadow: 0 30px 70px -35px rgba(31,181,122,.8); margin-bottom: 14px; }
+.trial-pf .chg-line.small { margin-top: 8px; font-size: .85rem; }
+.trial-pf #tpSpy { font-family: var(--mono); font-weight: 600; }
+#view-trial > .kpis { margin-bottom: 6px; }
+#tpNote { margin: 0 2px 14px; }
 
 /* KPI colour blocks */
 .kpis .kpi { border: 0; border-radius: 20px; padding: 14px 16px 16px; min-height: 92px; justify-content: space-between; }
