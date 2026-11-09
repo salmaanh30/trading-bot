@@ -45,6 +45,8 @@
   const quotes = {};
   let alpacaEquity = null;
   let alpacaPos = []; // open Alpaca paper positions, refreshed every 30 s
+  let alpacaBuysToday = []; // symbols bought (or with a live buy order) in today's session
+  const tradedToday = () => alpacaPos.length > 0 || alpacaBuysToday.length > 0;
   let tSel = "NOK", tHoverX = null; // trial chart: selected stock and crosshair
   let insights = [];
   let verdict = { lvl: "watch", title: "Reading the market…" };
@@ -620,6 +622,8 @@
     $("alertBar").innerHTML = active.map((a, i) => `<div class="al ${a.kind}"><div class="al-txt"><b>${esc(a.title)}</b><p>${esc(a.text)}</p>${a.status ? `<p class="al-st">${esc(a.status)}</p>` : ""}</div><div class="al-btns">${a.action ? (keys ? `<button class="btn al-go" data-go="${i}">${esc(a.action.label)}</button>` : `<a class="btn al-go" href="#settings">Add Alpaca keys to use the button</a>`) : ""}<button class="btn small" data-x="${i}">Dismiss</button></div></div>`).join("");
   }
   async function trialBuy(a, p) {
+    await refreshAlpaca();
+    if (tradedToday()) { a.status = `Not sent: today's 1 trade is already taken (${[...new Set([...alpacaPos.map((x) => x.symbol), ...alpacaBuysToday])].join(", ")}).`; a.action = null; renderAlerts(); return; }
     if (!confirm(`PAPER order on Alpaca:\n\nBUY 1 ${p.symbol}, limit ${p.entry}\nStop-loss ${p.stop} · Take-profit ${p.target}\nMax loss ≈ $${(p.entry - p.stop).toFixed(2)}\n\nSend it?`)) return;
     a.status = "Sending…"; renderAlerts();
     try {
@@ -649,7 +653,7 @@
     if (!rd.entry) return;
     const tm = `${etClock(rd.trigMins)} ET`, p = { symbol: s, entry: +rd.entry.toFixed(2), stop: +rd.stop.toFixed(2), target: +rd.target.toFixed(2) };
     if (rd.wide) return fire({ id: `${d}-${s}-skip`, kind: "skip", title: `SKIP ${s}: don't buy`, text: `It broke out at ${tm}, but the stop would be $${rd.risk.toFixed(2)} away, over your $0.50 max loss.` });
-    if (!rd.outcome && now.mins < T_FLAT) {
+    if (!rd.outcome && now.mins < T_FLAT && !tradedToday()) {
       const late = Math.max(0, now.mins - rd.trigMins), nowPx = t.price ? ` Price now ${px(t.price)}.` : "";
       const a = { id: `${d}-${s}-buy`, kind: "buy", title: `BUY NOW: ${s}, 1 share`, text: `5-min bar closed at ${px(p.entry)}, above the range high ${px(rd.hi)} (${tm}${late > 5 ? `, ${late} min ago` : ""}).${nowPx} Buy 1 share with a limit of ${px(p.entry)}, stop ${px(p.stop)}, target ${px(p.target)}. Max loss $${rd.risk.toFixed(2)}.` };
       a.action = { label: `Buy 1 ${s} now (paper)`, fn: () => trialBuy(a, p) };
@@ -1199,9 +1203,12 @@ Answer in plain English, short (under 150 words unless they ask for more), concr
     const out = $("alpacaOut");
     if (!S.settings.alpacaKey || !S.settings.alpacaSecret) return;
     try {
-      const [acct, positions] = await Promise.all([alpaca("/v2/account"), alpaca("/v2/positions")]);
+      const since = new Date(Date.now() - 12 * 3600e3).toISOString();
+      const [acct, positions, buys] = await Promise.all([alpaca("/v2/account"), alpaca("/v2/positions"), alpaca(`/v2/orders?status=all&side=buy&limit=50&after=${since}`).catch(() => [])]);
       alpacaEquity = parseFloat(acct.equity);
       alpacaPos = positions;
+      alpacaBuysToday = buys.filter((o) => o.side === "buy" && (+o.filled_qty > 0 || !["canceled", "rejected", "expired"].includes(o.status))).map((o) => o.symbol);
+      if (tradedToday() && active.some((a) => a.kind === "buy")) { active = active.filter((a) => a.kind !== "buy"); renderAlerts(); }
       const dayPl = alpacaEquity - parseFloat(acct.last_equity);
       out.className = "";
       out.innerHTML = `
